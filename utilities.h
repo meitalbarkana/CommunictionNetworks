@@ -7,7 +7,7 @@
 # include <sys/socket.h>
 #endif
 #define SIZE_OF_LEN 4
-#define SIZE_OF_COMMAND 2
+#define SIZE_OF_TYPE 2
 #define MAX_FILES_FOR_USER 15
 #define MAX_USERS 15
 #define MAX_PASSWORD_LEN 25
@@ -29,7 +29,11 @@
 #define SERVER_FILE_ADD_MSG 5
 #define SERVER_FILE_DOWNLOAD_MSG 6
 
-
+struct msg {
+	char* msg;
+	int type;
+	int len;
+};
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
@@ -37,4 +41,6 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
 
 int sendall(int s, char *buf, int *len);
 int recvall(int s, char *buf, int *len);
-int getSizeOfMsg(int iFd, int* oSize);
+int getIntFromMsg(int iFd, int Isize, int* retVal);
+int getMSG(int iFd, struct msg * msg);
+

@@ -45,13 +45,25 @@ int recvall(int s, char *buf, int *len) {
 	*len = total; /* return number actually recv here */
 	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
 }
-int getSizeOfMsg(int iFd, int* oSize) {
-	char sizeArr[SIZE_OF_LEN];
-	int len;
-	if (recvall(iFd, &sizeArr, &len) == -1) {
+int getIntFromMsg(int iFd,int Isize, int* retVal) {
+	char* sizeArr =(char*)malloc(Isize);
+	if (recvall(iFd, &sizeArr, &Isize) == -1) {
+		free(sizeArr);
 		return -1;
 	}
-	*oSize = stringToInt(sizeArr, SIZE_OF_LEN);
+	*retVal = stringToInt(sizeArr, Isize);
+	free(sizeArr);
 	return 0;
 	
+}
+
+int getMSG(int iFd, struct msg * msg) {
+	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
+	int type;
+	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
+	msg->msg = (char*)malloc(&msg->len);
+	if (recvall(iFd, &msg, &msg->len) == -1) {
+		free(msg->msg);
+		return -1;
+	}
 }
