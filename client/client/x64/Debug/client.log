@@ -1,0 +1,11 @@
+﻿  client.c
+c:\users\ashuach\documents\github\communictionnetworks\client\client\client.c(33): warning C4133: 'function': incompatible types - from 'sockaddr_in *' to 'const sockaddr *'
+c:\users\ashuach\documents\github\communictionnetworks\client\client\client.c(35): warning C4013: 'close' undefined; assuming extern returning int
+c:\users\ashuach\documents\github\communictionnetworks\client\client\client.c(56): warning C4047: 'function': 'unsigned char *' differs in levels of indirection from 'unsigned char (*)[4]'
+c:\users\ashuach\documents\github\communictionnetworks\client\client\client.c(56): warning C4024: 'intToString': different types for formal and actual parameter 3
+c:\users\ashuach\documents\github\communictionnetworks\client\client\client.c(20): warning C4244: 'initializing': conversion from 'SOCKET' to 'int', possible loss of data
+  utilities.c
+c:\users\ashuach\documents\github\communictionnetworks\utilities.c(51): warning C4047: 'function': 'char *' differs in levels of indirection from 'char (*)[4]'
+c:\users\ashuach\documents\github\communictionnetworks\utilities.c(51): warning C4024: 'recvall': different types for formal and actual parameter 2
+  Generating Code...
+  client.vcxproj -> C:\Users\Ashuach\Documents\GitHub\CommunictionNetworks\client\x64\Debug\client.exe
