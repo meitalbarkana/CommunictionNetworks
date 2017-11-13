@@ -1,4 +1,5 @@
 #pragma once
+#pragma warning(disable : 4996)
 #include "utilities.h"
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
@@ -99,6 +100,42 @@ static bool isStringNumeric(const char* str){
 			return false;
 		}
 	}
+	return true;
+}
+
+bool fileToString(char** msg, char* filepath,long* fsize) {
+	FILE *f = fopen(filepath, "rb");
+	if (f == NULL) {
+		printf("can't open file");
+		return false;
+	}
+
+	if (fseek(f, 0, SEEK_END) != 0) {
+		printf("fseek failed");
+		return false;
+	}
+	 *fsize = ftell(f);
+	if (*fsize == -1L) {
+		printf("ftell failed");
+		return false;
+	}
+	if (fseek(f, 0, SEEK_SET) != 0) {
+		printf("fseek failed");
+		return false;
+	}
+
+	*msg = (char *)malloc(*fsize + 1);
+	if (*msg == NULL) {
+		printf("malloc failed");
+		return false;
+	}
+	if (fread(*msg, *fsize, 1, f) < 1) {
+		printf("fread failed");
+		return false;
+	}
+	fclose(f);
+	char* end = *msg + *fsize;
+	*end = 0;
 	return true;
 }
 

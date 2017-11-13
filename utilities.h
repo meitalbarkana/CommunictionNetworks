@@ -43,6 +43,7 @@ struct msg {
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
+bool fileToString(char** msg, char* filepath, long* fsize);
 
 static bool doesPathExists(const char* path);
 static bool isValidFilePath(const char* path);
@@ -52,4 +53,5 @@ int sendall(int s, char *buf, int *len);
 int recvall(int s, char *buf, int *len);
 int getIntFromMsg(int iFd, int Isize, int* retVal);
 int getMSG(int iFd, struct msg * msg);
+
 
