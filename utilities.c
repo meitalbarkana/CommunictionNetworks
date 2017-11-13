@@ -139,3 +139,16 @@ bool fileToString(char** msg, char* filepath,long* fsize) {
 	return true;
 }
 
+bool StringTofile(char* msg, char* filepath) {
+	FILE *f = fopen(filepath, "wb");
+	if (f == NULL) {
+		printf("can't open file");
+		return false;
+	}
+	if (fprintf(f, msg) < 0) {
+		printf("can't write to file");
+		return false;
+	}
+	fclose(f);
+	return true;
+}
