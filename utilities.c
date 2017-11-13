@@ -72,7 +72,7 @@ int getMSG(int iFd, struct msg * msg) {
 /**
  * Returns true if path is a directory
  **/
-static bool doesPathExists(const char* path){
+bool doesPathExists(const char* path){
 	struct stat dirData;
 	if (stat(path, &dirData) == 0 && S_ISDIR(dirData.st_mode)){
 		return true;
@@ -83,7 +83,7 @@ static bool doesPathExists(const char* path){
 /**
  * Returns true if path is a file (not a directory)
  **/
-static bool isValidFilePath(const char* path){
+bool isValidFilePath(const char* path){
 	struct stat fileData;
 	if (stat(path, &fileData) == 0 && S_ISREG(fileData.st_mode)){
 		return true;
@@ -94,7 +94,7 @@ static bool isValidFilePath(const char* path){
 /**
  * Returns true if str is numeric
  **/
-static bool isStringNumeric(const char* str){
+bool isStringNumeric(const char* str){
 	for (size_t i = 0; i < strlen(str); ++i){
 		if(!isdigit(str[i])){
 			return false;

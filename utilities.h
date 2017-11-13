@@ -45,9 +45,9 @@ void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iB
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
 bool fileToString(char** msg, char* filepath, long* fsize);
 
-static bool doesPathExists(const char* path);
-static bool isValidFilePath(const char* path);
-static bool isStringNumeric(const char* str);
+bool doesPathExists(const char* path);
+bool isValidFilePath(const char* path);
+bool isStringNumeric(const char* str);
 
 int sendall(int s, char *buf, int *len);
 int recvall(int s, char *buf, int *len);
