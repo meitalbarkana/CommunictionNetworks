@@ -6,6 +6,11 @@
 #include <sys/types.h>
 # include <sys/socket.h>
 #endif
+#include <stdbool.h> // For booleans
+#include <sys/stat.h> // For info about dierctory/file
+#include <ctype.h> // For isdigit()
+#include <string.h> // For strlen()
+
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
 #define MAX_FILES_FOR_USER 15
@@ -37,7 +42,10 @@ struct msg {
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
-//TODO:: add a function that checks a given path
+
+static bool doesPathExists(const char* path);
+static bool isValidFilePath(const char* path);
+static bool isStringNumeric(const char* str);
 
 int sendall(int s, char *buf, int *len);
 int recvall(int s, char *buf, int *len);
