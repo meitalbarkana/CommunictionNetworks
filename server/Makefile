@@ -7,7 +7,7 @@ all:
 Server: server.o utilities.o
 	gcc -std=c99 -Wall -g -Werror -pedantic-errors $^ -o $@
 
-server.o: server.c utilities.h
+server.o: server.c server.h utilities.h
 	gcc -std=c99 -Wall -g -Werror -pedantic-errors -c $<
 
 .PHONY: clean

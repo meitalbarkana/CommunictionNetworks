@@ -1,12 +1,35 @@
-#include "../utilities.h"
-#include <stdlib.h> // For strtol()
-#include <limits.h> // For constant USHRT_MAX
+#include "server.h"
 
 /**enum errors {
 	
 }**/
 
 static unsigned short portNumber = 1337; // Default value
+
+enum serverErrors getUsersInfoFromFile(const char* pathToFile,struct UserInfo** ptrToAllUsersInfo){
+	struct stat st;
+	if ((stat(pathToFile, &st) != 0) || (st.st_size > MAX_FILE_SIZE) || (st.st_size <= 0)) { //st_size might be negative, if an error accured..
+		return USERS_FILE_ERR;
+	}
+	
+	// Because sizeof(char)=1 byte, and each user's name+password are at least of 1 character for each,
+	// an array of this size is more than enough.
+	*ptrToAllUsersInfo = (struct UserInfo*)malloc( sizeOf(struct UserInfo)*(st.st_size/2) ); 
+	if (*ptrToAllUsersInfo == NULL) {
+			return USERS_FILE_ALOC_FAIL;
+	}
+	
+	FILE* fp;
+	if((fp = fopen(pathToFile,"r")) == NULL){
+			free(*ptrToAllUsersInfo); //TODO:: check this is the right way to free
+			return USERS_FILE_NOT_OPENED;
+	}
+	
+	//Read file line-by-line:
+	/*while (){
+		//TODO::
+	}*/
+}
 
 int main(int argc, char* argv[]){
 	
@@ -15,13 +38,13 @@ int main(int argc, char* argv[]){
 		return -1;
 	} 
 	
-	printf("users-file path provided is: %s\n", argv[1]);	
+	printf("users-file path provided is: %s\n", argv[1]); //TODO:: delete this line, only for tests
 	if(!isValidFilePath(argv[1])){
 		printf("File doesn't exist. Please try again\n");
 		return -1;
 	}
 	
-	printf("directory path provided is: %s\n", argv[2]);
+	printf("directory path provided is: %s\n", argv[2]);//TODO:: delete this line, only for tests
 	if(!doesPathExists(argv[2])){
 		printf("Path to directory doesn't exist or it's not a directory, uses default path\n");
 	}
@@ -42,6 +65,8 @@ int main(int argc, char* argv[]){
 		}
 	}
 
-	printf("port number is: %hu\n",portNumber);
+	printf("port number is: %hu\n",portNumber);//TODO:: delete this line, only for tests
+	
+	
 	return 0;
 }
