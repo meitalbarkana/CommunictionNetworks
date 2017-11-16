@@ -34,7 +34,7 @@ bool generateFileDownloadRequestMSG(unsigned char** msg, unsigned char* filePath
 	return true;
 }
 
-bool generateFileAddRequestMSG(unsigned char** msg,unsigned char* filepath) {
+bool generateFileAddRequestMSG(unsigned char** msg, const char* filepath) {
 	unsigned char* txt;
 	long size;
 	if (fileToString(&txt, filepath, &size) == false) {

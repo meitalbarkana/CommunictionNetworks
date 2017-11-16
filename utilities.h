@@ -39,8 +39,8 @@ struct msg {
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
-bool fileToString(unsigned char** msg, unsigned char* filepath, long* fsize);
-bool StringTofile(unsigned char* msg,unsigned char* filepath);
+bool fileToString(unsigned char** msg, const char* filepath, long* fsize);
+bool StringTofile(unsigned char* msg,const char* filepath);
 
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);

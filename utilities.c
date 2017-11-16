@@ -45,12 +45,12 @@ int recvall(int s, char *buf, int *len) {
 	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
 }
 int getIntFromMsg(int iFd,int Isize, int* retVal) {
-	char* sizeArr =(char*)malloc(Isize);
+	unsigned char* sizeArr =(unsigned char*)malloc(Isize);
 	if (recvall(iFd, sizeArr, &Isize) == -1) {
 		free(sizeArr);
 		return -1;
 	}
-	*retVal = stringToInt(sizeArr, Isize); //Compiling error:expected ‘unsigned char *’ but argument is of type ‘char *’
+	*retVal = stringToInt(sizeArr, Isize);
 	free(sizeArr);
 	return 0;
 	
@@ -101,8 +101,8 @@ bool isStringNumeric(const char* str){
 	return true;
 }
 
-bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
-	FILE *f = fopen(filepath, "rb"); //Compilation error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
+bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
+	FILE *f = fopen(filepath, "rb");
 
 	if (f == NULL) {
 		printf("can't open file");
@@ -138,8 +138,8 @@ bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
 	return true;
 }
 
-bool StringTofile(unsigned char* msg, unsigned char* filepath) {
-	FILE *f = fopen(filepath, "wb");//error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
+bool StringTofile(unsigned char* msg, const char* filepath) {
+	FILE *f = fopen(filepath, "wb");
 	if (f == NULL) {
 		printf("can't open file");
 		return false;
