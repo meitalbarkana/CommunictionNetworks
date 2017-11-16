@@ -5,16 +5,16 @@
 #include <sys/stat.h> // For info about dierctory/file
 #include <ctype.h> // For isdigit()
 #include <string.h> // For strlen()
-#include <stdlib.h>
+#include <stdlib.h> // For malloc()/calloc()
 
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
 #define SIZE_OF_PREFIX (SIZE_OF_TYPE+SIZE_OF_LEN)
 #define MAX_FILES_FOR_USER 15
 #define MAX_USERS 15
-#define MAX_PASSWORD_LEN 25
-#define MAX_USERNAME_LEN 25
-#define MAX_FILE_SIZE 512//Bytes
+#define MAX_PASSWORD_LEN 25 //This doesn't include null-terminator
+#define MAX_USERNAME_LEN 25 //This doesn't include null-terminator
+#define MAX_FILE_SIZE 512 //Bytes. more than enough since each username+password line takes 52 bytes at most, *15 lines
 
 #define CLIENT_LOGIN_MSG 0
 #define CLIENT_FILES_LIST_MSG 1

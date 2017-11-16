@@ -1,4 +1,3 @@
-
 #include "utilities.h"
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
@@ -51,7 +50,7 @@ int getIntFromMsg(int iFd,int Isize, int* retVal) {
 		free(sizeArr);
 		return -1;
 	}
-	*retVal = stringToInt(sizeArr, Isize);
+	*retVal = stringToInt(sizeArr, Isize); //Compiling error:expected ‘unsigned char *’ but argument is of type ‘char *’
 	free(sizeArr);
 	return 0;
 	
@@ -103,7 +102,8 @@ bool isStringNumeric(const char* str){
 }
 
 bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
-	FILE *f = fopen(filepath, "rb");
+	FILE *f = fopen(filepath, "rb"); //Compilation error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
+
 	if (f == NULL) {
 		printf("can't open file");
 		return false;
@@ -139,7 +139,7 @@ bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
 }
 
 bool StringTofile(unsigned char* msg, unsigned char* filepath) {
-	FILE *f = fopen(filepath, "wb");
+	FILE *f = fopen(filepath, "wb");//error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
 	if (f == NULL) {
 		printf("can't open file");
 		return false;
