@@ -48,7 +48,7 @@ int recvall(int s, char *buf, int *len) {
 }
 int getIntFromMsg(int iFd,int Isize, int* retVal) {
 	char* sizeArr =(char*)malloc(Isize);
-	if (recvall(iFd, &sizeArr, &Isize) == -1) {
+	if (recvall(iFd, sizeArr, &Isize) == -1) {
 		free(sizeArr);
 		return -1;
 	}
@@ -60,13 +60,13 @@ int getIntFromMsg(int iFd,int Isize, int* retVal) {
 
 int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
-	int type;
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
-	msg->msg = (char*)malloc(&msg->len);
-	if (recvall(iFd, &msg, &msg->len) == -1) {
+	msg->msg = (char*)malloc(msg->len);
+	if (recvall(iFd, msg->msg, &msg->len) == -1) {
 		free(msg->msg);
 		return -1;
 	}
+	return 0;
 }
 
 /**
