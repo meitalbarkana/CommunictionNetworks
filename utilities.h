@@ -1,15 +1,11 @@
-#pragma once
 #include <stdio.h>
-#ifdef _WIN64
-# include <winsock2.h>
-#else
 #include <sys/types.h>
 # include <sys/socket.h>
-#endif
 #include <stdbool.h> // For booleans
 #include <sys/stat.h> // For info about dierctory/file
 #include <ctype.h> // For isdigit()
 #include <string.h> // For strlen()
+#include <stdlib.h>
 
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
@@ -43,8 +39,8 @@ struct msg {
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
-bool fileToString(char** msg, char* filepath, long* fsize);
-bool StringTofile(char* msg, char* filepath);
+bool fileToString(unsigned char** msg, unsigned char* filepath, long* fsize);
+bool StringTofile(unsigned char* msg,unsigned char* filepath);
 
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);

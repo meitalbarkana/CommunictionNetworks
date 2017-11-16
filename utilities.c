@@ -1,5 +1,4 @@
-#pragma once
-#pragma warning(disable : 4996)
+
 #include "utilities.h"
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
@@ -103,7 +102,7 @@ bool isStringNumeric(const char* str){
 	return true;
 }
 
-bool fileToString(char** msg, char* filepath,long* fsize) {
+bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
 	FILE *f = fopen(filepath, "rb");
 	if (f == NULL) {
 		printf("can't open file");
@@ -134,18 +133,18 @@ bool fileToString(char** msg, char* filepath,long* fsize) {
 		return false;
 	}
 	fclose(f);
-	char* end = *msg + *fsize;
+	unsigned char* end = *msg + *fsize;
 	*end = 0;
 	return true;
 }
 
-bool StringTofile(char* msg, char* filepath) {
+bool StringTofile(unsigned char* msg, unsigned char* filepath) {
 	FILE *f = fopen(filepath, "wb");
 	if (f == NULL) {
 		printf("can't open file");
 		return false;
 	}
-	if (fprintf(f, msg) < 0) {
+	if (fprintf(f,"%s",msg) < 0) {
 		printf("can't write to file");
 		return false;
 	}
