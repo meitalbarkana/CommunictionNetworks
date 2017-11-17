@@ -82,22 +82,26 @@ int generateFileDownloadRequestMSG(unsigned char** msg, unsigned char* filePath,
 	return SIZE_OF_PREFIX + size;
 }
 
-int generateFileAddRequestMSG(unsigned char** msg, const char* filepath) {
+int generateFileAddRequestMSG(unsigned char** msg, const char* filepath, const char* newFile) {
 	unsigned char* txt;
-	long size;
-	if (fileToString(&txt, filepath, &size) == false) {
-		return false;
+	unsigned char newLine='\n';
+	long sizeOfFile;
+	long sizeNewPath=strlen(newFile);
+	if (fileToString(&txt, filepath, &sizeOfFile) == false) {
+		return -1;
 	}
-	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX + size);
+	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX + sizeOfFile+sizeNewPath+1);
 	if (*msg == NULL) {
 		printf("malloc failed");
 		return -1;
 	}
-	intToString(size, SIZE_OF_LEN, *msg);
+	intToString(sizeOfFile+sizeNewPath+1, SIZE_OF_LEN, *msg);
 	intToString(CLIENT_FILE_ADD_MSG, SIZE_OF_TYPE, *msg + SIZE_OF_LEN);
-	memcpy(*msg + SIZE_OF_PREFIX, txt, size);
+	memcpy(*msg + SIZE_OF_PREFIX, newFile, sizeNewPath);
+	memcpy(*msg + SIZE_OF_PREFIX+sizeNewPath,&newLine,1);
+	memcpy(*msg + SIZE_OF_PREFIX+sizeNewPath+1, txt, sizeOfFile);
 	free(txt);
-	return SIZE_OF_PREFIX + size;
+	return SIZE_OF_PREFIX + sizeOfFile;
 }
 int generateFileDeleteRequestMSG(unsigned char** msg, unsigned char* filePath,
 		int size) {
