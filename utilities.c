@@ -14,7 +14,7 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 }
 
 //from slides
-int sendall(int s, char *buf, int *len) {
+int sendall(int s, unsigned char *buf, int *len) {
 
 	int total = 0; /* how many bytes we've sent */
 	int bytesleft = *len; /* how many we have left to send */
@@ -29,7 +29,7 @@ int sendall(int s, char *buf, int *len) {
 	*len = total; /* return number actually sent here */
 	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
 }
-int recvall(int s, char *buf, int *len) {
+int recvall(int s, unsigned char *buf, int *len) {
 
 	int total = 0; /* how many bytes we've recv */
 	int bytesleft = *len; /* how many we have left to recv */
@@ -61,6 +61,7 @@ int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
 	msg->msg = (char*)malloc(msg->len);
 	if (recvall(iFd, msg->msg, &msg->len) == -1) {
+		printf("Error in receiving message");
 		free(msg->msg);
 		return -1;
 	}

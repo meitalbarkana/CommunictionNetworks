@@ -15,6 +15,8 @@
 #define MAX_PASSWORD_LEN 25 //This doesn't include null-terminator
 #define MAX_USERNAME_LEN 25 //This doesn't include null-terminator
 #define MAX_FILE_SIZE 512 //Bytes. more than enough since each username+password line takes 52 bytes at most, *15 lines
+#define MAX_FILE_PATH_LEN 255 //True for most file systems
+#define MAX_COMMAND_LEN (10+MAX_FILE_PATH_LEN) //For adding files with long path
 
 #define CLIENT_LOGIN_MSG 0
 #define CLIENT_FILES_LIST_MSG 1
@@ -25,7 +27,7 @@
 
 #define SERVER_WELCOME_MSG 0
 #define SERVER_PLEASE_LOGIN_MSG 1
-#define SERVER_LOGIN_FAIL_MSG 2
+#define SERVER_LOGIN_MSG 2
 #define SERVER_FILES_LIST_MSG 3
 #define SERVER_FILE_REMOVE_MSG 4
 #define SERVER_FILE_ADD_MSG 5
@@ -46,8 +48,8 @@ bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);
 bool isStringNumeric(const char* str);
 
-int sendall(int s, char *buf, int *len);
-int recvall(int s, char *buf, int *len);
+int sendall(int s, unsigned char *buf, int *len);
+int recvall(int s, unsigned char *buf, int *len);
 int getIntFromMsg(int iFd, int Isize, int* retVal);
 int getMSG(int iFd, struct msg * msg);
 
