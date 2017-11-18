@@ -9,6 +9,7 @@
 #include <ctype.h> // For isdigit()
 #include <string.h> // For strlen()
 #include <stdlib.h> // For malloc()/calloc()
+#include <errno.h>
 
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
