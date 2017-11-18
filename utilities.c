@@ -61,7 +61,7 @@ int getIntFromMsg(int iFd,int Isize, int* retVal) {
 int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
-	msg->msg = (char*)malloc(msg->len);
+	msg->msg = (unsigned char*)malloc(msg->len);
 	if (recvall(iFd, msg->msg, &msg->len) == -1) {
 		printf("Error in receiving message");
 		free(msg->msg);
@@ -126,7 +126,7 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 		return false;
 	}
 
-	*msg = (char *)malloc(*fsize + 1);
+	*msg = (unsigned char *)malloc(*fsize + 1);
 	if (*msg == NULL) {
 		printf("malloc failed");
 		return false;
