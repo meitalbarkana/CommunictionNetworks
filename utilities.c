@@ -1,4 +1,9 @@
 #include "utilities.h"
+void printUnsignedCharArr(const unsigned char* arr, int len){
+	for(int i=0;i<len;i++){
+		printf("%c",*(arr+i));
+	}
+}
 
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
@@ -140,7 +145,10 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 	*end = 0;
 	return true;
 }
-
+/**
+ * 	writes msg to file in filepath
+ * 	Note: msg must be null-terminated
+ **/
 bool StringTofile(unsigned char* msg, const char* filepath) {
 	FILE *f = fopen(filepath, "wb");
 	if (f == NULL) {

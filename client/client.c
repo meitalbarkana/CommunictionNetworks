@@ -18,7 +18,7 @@ bool getWelcomeMsg(int fd) {
 		return false;
 	}
 	if (m.type == SERVER_WELCOME_MSG) {
-		printf("%s", m.msg);
+		printUnsignedCharArr(m.msg, m.len);
 		free(m.msg);
 		return true;
 
@@ -26,37 +26,30 @@ bool getWelcomeMsg(int fd) {
 	free(m.msg);
 	return false;
 }
-
-bool GetServerLoginMsg(int df){
-	//TODO Implementation
+bool getAndPrint(int fd, int msgType) {
+	struct msg m;
+	if (getMSG(fd, &m) < 0 || m.type != msgType) {
+		free(m.msg);
+		return false;
+	}
+	printUnsignedCharArr(m.msg, m.len);
+	free(m.msg);
 	return true;
 }
-
-bool listOfFilesRequest(int df){
-	//TODO Implementation
-	return true;
+int getAndReturnMsg(int fd, int msgType, unsigned char* msg) {
+	struct msg m;
+	if (getMSG(fd, &m) < 0 || m.type != msgType) {
+		free(m.msg);
+		msg = NULL;
+		return -1;
+	}
+	msg = m.msg;
+	return m.len;
 }
 
-bool deleteFileRequest(int df, char* fileName){
-	//TODO Implementation
-	return true;
+bool GetServerLoginMsg(int fd) {
+	return getAndPrint(fd, SERVER_LOGIN_PASS_MSG);
 }
-
-bool getFileRequest(int df, char* fileName, char* PathToSave){
-	//TODO Implementation
-	return true;
-}
-
-bool addFileRequest(int df, char* filePath, char* newFileName){
-	//TODO Implementation
-	return true;
-}
-
-bool quitRequest(int df){
-	//TODO Implementation
-	return true;
-}
-
 
 int generateCloseRequestMSG(unsigned char** msg) {
 	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
@@ -69,7 +62,7 @@ int generateCloseRequestMSG(unsigned char** msg) {
 	return SIZE_OF_PREFIX;
 }
 
-int generateFileDownloadRequestMSG(unsigned char** msg, unsigned char* filePath,
+int generateFileDownloadRequestMSG(unsigned char** msg, const char* filePath,
 		int size) {
 	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX + size);
 	if (*msg == NULL) {
@@ -82,28 +75,30 @@ int generateFileDownloadRequestMSG(unsigned char** msg, unsigned char* filePath,
 	return SIZE_OF_PREFIX + size;
 }
 
-int generateFileAddRequestMSG(unsigned char** msg, const char* filepath, const char* newFile) {
+int generateFileAddRequestMSG(unsigned char** msg, const char* filepath,
+		const char* newFile) {
 	unsigned char* txt;
-	unsigned char newLine='\n';
+	unsigned char newLine = '\n';
 	long sizeOfFile;
-	long sizeNewPath=strlen(newFile);
+	long sizeNewPath = strlen(newFile);
 	if (fileToString(&txt, filepath, &sizeOfFile) == false) {
 		return -1;
 	}
-	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX + sizeOfFile+sizeNewPath+1);
+	*msg = (unsigned char*) malloc(
+	SIZE_OF_PREFIX + sizeOfFile + sizeNewPath + 1);
 	if (*msg == NULL) {
 		printf("malloc failed");
 		return -1;
 	}
-	intToString(sizeOfFile+sizeNewPath+1, SIZE_OF_LEN, *msg);
+	intToString(sizeOfFile + sizeNewPath + 1, SIZE_OF_LEN, *msg);
 	intToString(CLIENT_FILE_ADD_MSG, SIZE_OF_TYPE, *msg + SIZE_OF_LEN);
 	memcpy(*msg + SIZE_OF_PREFIX, newFile, sizeNewPath);
-	memcpy(*msg + SIZE_OF_PREFIX+sizeNewPath,&newLine,1);
-	memcpy(*msg + SIZE_OF_PREFIX+sizeNewPath+1, txt, sizeOfFile);
+	memcpy(*msg + SIZE_OF_PREFIX + sizeNewPath, &newLine, 1);
+	memcpy(*msg + SIZE_OF_PREFIX + sizeNewPath + 1, txt, sizeOfFile);
 	free(txt);
 	return SIZE_OF_PREFIX + sizeOfFile;
 }
-int generateFileDeleteRequestMSG(unsigned char** msg, unsigned char* filePath,
+int generateFileDeleteRequestMSG(unsigned char** msg, const char* filePath,
 		int size) {
 	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX + size);
 	if (*msg == NULL) {
@@ -149,6 +144,70 @@ int generateLoginMSG(unsigned char** msg) {
 	return sizeOfStr;
 
 }
+
+bool listOfFilesRequest(int fd) {
+	unsigned char* msg;
+	int len;
+	if ((len = generateFileListMSG(&msg)) < 0 || sendall(fd, msg, &len) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return getAndPrint(fd, SERVER_FILES_LIST_MSG);
+}
+
+bool deleteFileRequest(int fd, const char* fileName, int len) {
+	unsigned char* msg;
+	int lenOfMsg;
+	if ((lenOfMsg = generateFileDeleteRequestMSG(&msg, fileName, len)) < 0
+			|| sendall(fd, msg, &lenOfMsg) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return getAndPrint(fd, SERVER_FILE_REMOVE_MSG);
+}
+
+bool getFileRequest(int fd, const char* fileName, int len,
+		const char* PathToSave) {
+	unsigned char* msg;
+	int lenOfMsg;
+	int SizeOfFile;
+	if ((lenOfMsg = generateFileDownloadRequestMSG(&msg, fileName, len))
+			< 0 || sendall(fd, msg, &lenOfMsg) < 0
+			|| (SizeOfFile = getAndReturnMsg(fd, SERVER_FILE_DOWNLOAD_MSG, msg))
+			< 0 || StringTofile(msg,PathToSave)==false) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return true;
+}
+
+bool addFileRequest(int fd, const char* filePath, const char* newFileName) {
+	unsigned char* msg;
+	int lenOfMsg;
+	if ((lenOfMsg = generateFileAddRequestMSG(&msg, filePath, newFileName))
+			< 0 || sendall(fd, msg, &lenOfMsg) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return getAndPrint(fd, SERVER_FILE_ADD_MSG);
+}
+
+bool quitRequest(int fd) {
+	unsigned char* msg;
+	int lenOfMsg;
+	if ((lenOfMsg = generateCloseRequestMSG(&msg)) < 0
+			|| sendall(fd, msg, &lenOfMsg) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return true;
+}
+
 int main(int argc, char *argv[]) {
 
 // define target address
@@ -217,13 +276,13 @@ int main(int argc, char *argv[]) {
 		if (strcmp(command, "list_of_files") == 0) {
 			listOfFilesRequest(socketfd);
 		} else if ((strcmp(command, "delete_file") == 0) && arg1 != NULL) {
-			deleteFileRequest(socketfd, arg1);
+			deleteFileRequest(socketfd, arg1, strlen(arg1));
 		} else if (strcmp(command, "add_file")
 				== 0&& arg1 != NULL && arg2 != NULL) {
 			addFileRequest(socketfd, arg1, arg2);
 		} else if (strcmp(command, "get_file")
 				== 0&& arg1 != NULL && arg2 != NULL) {
-			getFileRequest(socketfd, arg1, arg2);
+			getFileRequest(socketfd, arg1, strlen(arg1), arg2);
 		} else if (strcmp(command, "quit") == 0) {
 			quitRequest(socketfd);
 			askedToQuit = true;

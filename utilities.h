@@ -30,18 +30,19 @@
 
 #define SERVER_WELCOME_MSG 0
 #define SERVER_LOGIN_PASS_MSG 1
-#define SERVER_LOGIN_FailedMSG 2
+#define SERVER_LOGIN_FAIL_MSG 2
 #define SERVER_FILES_LIST_MSG 3
 #define SERVER_FILE_REMOVE_MSG 4
 #define SERVER_FILE_ADD_MSG 5
 #define SERVER_FILE_DOWNLOAD_MSG 6
 
 struct msg {
-	char* msg;
+	unsigned char* msg;
 	int type;
 	int len;
 };
 
+void printUnsignedCharArr(const unsigned char* arr, int len);
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
 bool fileToString(unsigned char** msg, const char* filepath, long* fsize);
