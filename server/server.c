@@ -278,7 +278,23 @@ user_info** init_server(int argc, char* argv[]){
 	//printf("port number is: %hu\n",port_number); //Test Line
 	
 	user_info** ptr_all_users_info = NULL;
-	get_users_info_from_file(file_path, &ptr_all_users_info);
+	enum ServerErrors answ = get_users_info_from_file(file_path, &ptr_all_users_info);
+	if (answ != USERS_FILE_NO_ERR){
+		switch (answ){
+				case (USERS_FILE_TOO_BIG):
+					printf("Provided file is too big\n");
+					break;
+				case (USERS_FILE_ALOC_FAIL):
+					printf("Allocation failed when trying to create users-information from file\n");
+					break;
+				case (USERS_FILE_NOT_OPENED):
+					printf("Opening user-file failed, couldn't proceed\n");
+					break;
+				default:
+					printf("An error accured when trying to get file's stat or all lines were invalid (no user was added), couldn't proceed\n");
+		}
+		return NULL;
+	}
 	//print_users_array(&ptr_all_users_info); //Test Line
 	
 	if(!create_directories(&ptr_all_users_info, dir_path)) {
