@@ -36,6 +36,6 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path);
 /**
  * 	Server starts waiting for clients
  **/
-void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path);
+//void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path);
 
 #endif /*SERVER_H_*/

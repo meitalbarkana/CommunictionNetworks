@@ -38,7 +38,7 @@
 #define SERVER_FILE_DOWNLOAD_MSG 6
 
 struct msg {
-	char* msg;
+	unsigned char* msg;
 	int type;
 	int len;
 };
