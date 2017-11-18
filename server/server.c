@@ -311,7 +311,7 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
  *  Returns:
  * 		On success: the socketfd,
  * 		On failure: -1.
- **/
+ **//*
 static int init_sock(struct sockaddr_in* server_addr){
 	
 	int sockfd;
@@ -337,8 +337,8 @@ static int init_sock(struct sockaddr_in* server_addr){
 	}
 	
 	return sockfd;
-}
-
+}*/
+/*
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	
 	bool is_connection_open;
@@ -373,6 +373,64 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	}
 
 }
+*/
+
+/**
+ * 	Returns true if usern_to_check & passw_to_check fits a valid user
+ **/
+bool is_username_password_correct (user_info*** ptr_to_all_users_info,const char* usern_to_check, const char* passw_to_check){
+	for (size_t i = 0; i < number_of_valid_users; ++i){
+		if ((strncmp(((*ptr_to_all_users_info)[i])->username, usern_to_check, MAX_USERNAME_LEN+1) == 0) &&
+			(strncmp(((*ptr_to_all_users_info)[i])->password, passw_to_check, MAX_PASSWORD_LEN+1) == 0)){
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * 	Gets: char** usern , char** passw - pointers to addresses allocted&nullified in sizes of MAX_USERNAME_LEN+1,MAX_PASSWORD_LEN+1 accordingly.
+ * 	If buff is indeed of the format:
+ * 	"User: <username>
+ * 	 Password: <password>"
+ * 	updates (*usern), (*passw) to contain the relevant values and returns true.
+ * 	Otherwise, returns false.
+ **/
+bool exstract_username_password_from_msg(const char* buff, char** usern , char** passw){
+	size_t max_valid_len = MAX_PASSWORD_LEN+MAX_USERNAME_LEN+strlen("User: \nPassword: ");
+	if (strlen(buff)>max_valid_len){
+		return false;
+	}
+	if (sscanf(buff, "User: %s\nPassword: %s", (*usern),(*passw)) !=2){
+		return false;
+	}
+	return true;
+} 
+
+/**
+ * 	Returns true if buff indeed == "User: <username>\nPassword: <password>" of a valid user
+ **/
+bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff){
+	bool ans = false;
+	char *usern_to_check, *passw_to_check;
+	if ((usern_to_check = calloc(MAX_USERNAME_LEN*2, sizeof(char))) == NULL){ //*2 to make sure no overflow would happen in "exstract_username_password_from_msg()"
+		printf("Allocation failed\n");
+		return false;
+	}
+	if ((passw_to_check = calloc(MAX_PASSWORD_LEN*2, sizeof(char))) == NULL){
+		printf("Allocation failed\n");
+		free (usern_to_check);
+		return false;
+	}
+	if(!exstract_username_password_from_msg(buff, &usern_to_check, &passw_to_check)){
+		printf("Invalid format. please try again, use format:\nUser: <username>\nPassword: <password>\n");//ans = false
+	} else {
+		ans = is_username_password_correct(ptr_to_all_users_info, usern_to_check, passw_to_check);
+	}
+	free(passw_to_check);
+	free(usern_to_check);
+	return ans;
+}
 
 int main(int argc, char* argv[]){
 	
@@ -385,7 +443,25 @@ int main(int argc, char* argv[]){
 	}
 	//print_users_array(&ptr_all_users_info); //Test Line
 	
-	start_service(&ptr_all_users_info, &dir_path);
+	//start_service(&ptr_all_users_info, &dir_path);
+	
+	/**Test for validity of usernames**/
+	if (is_valid_user(&ptr_all_users_info, "User: user1\nPassword: 1234")){
+		printf("Details of user 1 are valid!\n");
+	} else {
+		printf("Details of user 1 are INvalid!\n");
+	}
+	if (is_valid_user(&ptr_all_users_info, "Username: user2\nPassword: 1234")){
+		printf("Details of user2 are valid!\n");
+	} else {
+		printf("Details of user2 are INvalid!\n");
+	}
+	if (is_valid_user(&ptr_all_users_info, "User: meital\nPassword: ilovepooch")){
+		printf("Details of meital are valid!\n");
+	} else {
+		printf("Details of meital are INvalid!\n");
+	}
+	/**END OF Test for validity of usernames**/
 	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
