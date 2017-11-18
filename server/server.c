@@ -19,7 +19,7 @@ static bool check_if_username_already_exists(const char* username_to_check, user
 /**
  *  Helper function to free memory
  **/
-static void free_users_array(user_info*** ptr_to_all_users_info){
+void free_users_array(user_info*** ptr_to_all_users_info){
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		free(((*ptr_to_all_users_info)[i])->username);
 		free(((*ptr_to_all_users_info)[i])->password);
@@ -32,13 +32,13 @@ static void free_users_array(user_info*** ptr_to_all_users_info){
 /**
  *  Helper function to print info - HUST FOR TESTING!
  **/
-static void print_users_array(user_info*** ptr_to_all_users_info){
+/*static void print_users_array(user_info*** ptr_to_all_users_info){
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		printf("***** Details of user number %zu *****\n", i);
 		printf("Username: %s\nPassword: %s\n", ((*ptr_to_all_users_info)[i])->username, ((*ptr_to_all_users_info)[i])->password);
 	}
 	printf("\n");
-}
+}*/
 
 /**
  * 	Allocates pointers-to-user_info-array, and 2 temporary strings
@@ -169,6 +169,9 @@ static enum ServerErrors get_users_info_from_file(const char* path_to_file,user_
 		buffer = NULL;
 	}
 	
+	free(buffer);
+	free(temp_username);
+	free(temp_password);
 	fclose(fp);
 	if (number_of_valid_users==0){
 		free((*ptr_to_all_users_info));
@@ -177,27 +180,85 @@ static enum ServerErrors get_users_info_from_file(const char* path_to_file,user_
 	return USERS_FILE_NO_ERR;
 }
 
-int main(int argc, char* argv[]){
+/**
+ * Gets user name, and if it's in "ptr_to_all_users_info" - deletes that user_info from the array,
+ * updates number_of_valid_users (and moves all pointers accordingly)
+ **/
+static void delete_user_from_list(const char* username_to_delete, user_info*** ptr_to_all_users_info){
+	for (size_t i = 0; i < number_of_valid_users; ++i){
+		if (strncmp(((*ptr_to_all_users_info)[i])->username, username_to_delete, MAX_USERNAME_LEN+1) == 0){
+			free(((*ptr_to_all_users_info)[i])->username);
+			free(((*ptr_to_all_users_info)[i])->password);
+			free((*ptr_to_all_users_info)[i]);
+			//update pointers:
+			for (size_t j = 0; j < (number_of_valid_users-i-1); ++j){
+				((*ptr_to_all_users_info)[j+i]) = ((*ptr_to_all_users_info)[j+i+1]);	
+			}
+			((*ptr_to_all_users_info)[number_of_valid_users-1]) = NULL;
+			number_of_valid_users--;
+			return;
+		}
+	}
+}
+
+/**
+ *	Creates directory for each user in ptr_to_all_users_info,
+ * 	at path "path". 
+ *  Returns true if at least 1 directory was created.
+ **/
+static bool create_directories(user_info*** ptr_to_all_users_info, const char* dir_path){
+	bool res = false;
+	char* path;
+	//Make sure "path" includes character / at its end:
+	if ( dir_path[strlen(dir_path)-1] != '/' ) {
+		path = concat_strings(dir_path,"/");
+	} else {
+		path = concat_strings(dir_path,"");
+	}
+	if (path == NULL){
+		return false;
+	}
+	
+	for (size_t i = 0; i < number_of_valid_users; ++i){	
+		char* dir_name = concat_strings(path, (((*ptr_to_all_users_info)[i])->username));
+		if (dir_name == NULL) { //Allocation failed:
+			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
+			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+			continue;
+		}
+		if(mkdir(dir_name, (S_IRWXU||S_IRWXG||S_IRWXO)) ==0 ) { //If succeed creating the directory
+			res = true;
+		} else { //Creating directory failed
+			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
+			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+		}
+		free(dir_name);
+	}
+	free (path);
+	return res;
+}
+
+
+user_info** init_server(int argc, char* argv[]){
 	char *file_path, *dir_path;
 	if (argc < 3 || argc > 4) {
 		printf("Wrong usage, format is: <file_server> <users_file> <directory file> [optional:port number]. Please try again\n");
-		return -1;
+		return NULL;
 	} 
 	
-	printf("users-file path provided is: %s\n", argv[1]); //TODO:: delete this line, only for tests
+	//printf("users-file path provided is: %s\n", argv[1]); //Test Line
 	if(!isValidFilePath(argv[1])){
 		printf("File doesn't exist. Please try again\n");
-		return -1;
+		return NULL;
 	}
 	file_path = argv[1];
 	
-
 	if(!doesPathExists(argv[2])){
 		printf("Path to directory doesn't exist or it's not a directory. Please try again.\n");
-		return -1;
+		return NULL;
 	}
 	dir_path = argv[2];
-	printf("Valid directory path provided is: %s\n", dir_path);//TODO:: delete this line, only for tests
+	//printf("Valid directory path provided is: %s\n", dir_path); //Test Line
 	
 	/** 
 	 * If a fourth argument (port number) was provided, checks if it's relevant (short unsigned, meaning in range of 1 to USHRT_MAX),
@@ -214,14 +275,32 @@ int main(int argc, char* argv[]){
 			port_number = (unsigned short) val;
 		}
 	}
-
-	printf("port number is: %hu\n",port_number);//TODO:: delete this line, only for tests
+	//printf("port number is: %hu\n",port_number); //Test Line
 	
 	user_info** ptr_all_users_info = NULL;
 	get_users_info_from_file(file_path, &ptr_all_users_info);
+	//print_users_array(&ptr_all_users_info); //Test Line
 	
-	print_users_array(&ptr_all_users_info);
+	if(!create_directories(&ptr_all_users_info, dir_path)) {
+		printf("No directories were created for users\n");
+		free_users_array(&ptr_all_users_info);
+		return NULL;
+	}
 	
+	return ptr_all_users_info;
+}
+
+
+int main(int argc, char* argv[]){
+	
+	user_info** ptr_all_users_info = init_server(argc, argv);
+	
+	if(ptr_all_users_info == NULL) {
+		printf("Initiating server failed\n");
+		return -1;
+	}
+	
+	//print_users_array(&ptr_all_users_info); //Test Line
 	free_users_array(&ptr_all_users_info);
 	
 	return 0;

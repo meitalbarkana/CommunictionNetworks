@@ -1,6 +1,6 @@
 #include "utilities.h"
 
-/*void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
+void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
 		iBuffer[iSizeInBytes - i - 1] = (iNum >> 8 * i) & 0xFF;
 	}
@@ -11,7 +11,7 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 		res += (int)(iBuffer[iSizeInBytes - i - 1]) << 8 * i;
 	}
 	return res;
-}*/
+}
 
 //from slides
 int sendall(int s, unsigned char *buf, int *len) {
@@ -27,8 +27,8 @@ int sendall(int s, unsigned char *buf, int *len) {
 		bytesleft -= n;
 	}
 
-	*len = total; /* return number actually sent here */
-	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
+	*len = total; // return number actually sent here
+	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
 }
 int recvall(int s, unsigned char *buf, int *len) {
 
@@ -43,8 +43,8 @@ int recvall(int s, unsigned char *buf, int *len) {
 		bytesleft -= n;
 	}
 
-	*len = total; /* return number actually recv here */
-	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
+	*len = total; // return number actually recv here
+	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
 }
 int getIntFromMsg(int iFd,int Isize, int* retVal) {
 	unsigned char* sizeArr =(unsigned char*)malloc(Isize);

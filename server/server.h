@@ -17,4 +17,15 @@ typedef struct{
 	char* password;
 } user_info;
 
+/**
+ *  Helper function to free memory
+ **/
+void free_users_array(user_info*** ptr_to_all_users_info);
+/**
+ *  If server initiation succeeded returns an array of pointers to user_info,
+ *  otherwise returns NULL.
+ * 	Note: user of this functions should free space allocated user_info**.
+ **/ 
+user_info** init_server(int argc, char* argv[]);
+
 #endif /*SERVER_H_*/
