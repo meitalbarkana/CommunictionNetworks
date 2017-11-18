@@ -131,7 +131,7 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 		return false;
 	}
 
-	*msg = (char *)malloc(*fsize + 1);
+	*msg = (unsigned char *)malloc(*fsize + 1);
 	if (*msg == NULL) {
 		printf("malloc failed");
 		return false;
