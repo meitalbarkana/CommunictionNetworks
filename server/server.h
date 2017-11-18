@@ -1,3 +1,5 @@
+#ifndef SERVER_H_
+#define SERVER_H_
 #include "../utilities.h"
 #include <stdlib.h> // For strtol()
 #include <limits.h> // For constant USHRT_MAX
@@ -15,3 +17,4 @@ typedef struct{
 	char* password;
 } user_info;
 
+#endif /*SERVER_H_*/

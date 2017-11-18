@@ -1,6 +1,6 @@
 #include "utilities.h"
 
-void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
+/*void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
 		iBuffer[iSizeInBytes - i - 1] = (iNum >> 8 * i) & 0xFF;
 	}
@@ -11,13 +11,13 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 		res += (int)(iBuffer[iSizeInBytes - i - 1]) << 8 * i;
 	}
 	return res;
-}
+}*/
 
 //from slides
-int sendall(int s, char *buf, int *len) {
+/*int sendall(int s, char *buf, int *len) {
 
-	int total = 0; /* how many bytes we've sent */
-	int bytesleft = *len; /* how many we have left to send */
+	int total = 0; // how many bytes we've sent
+	int bytesleft = *len; // how many we have left to send
 	int n;
 
 	while (total < *len) {
@@ -26,13 +26,13 @@ int sendall(int s, char *buf, int *len) {
 		total += n;
 		bytesleft -= n;
 	}
-	*len = total; /* return number actually sent here */
-	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
-}
-int recvall(int s, char *buf, int *len) {
+	*len = total; // return number actually sent here 
+	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
+}*/
+/*int recvall(int s, char *buf, int *len) {
 
-	int total = 0; /* how many bytes we've recv */
-	int bytesleft = *len; /* how many we have left to recv */
+	int total = 0; // how many bytes we've recv
+	int bytesleft = *len; // how many we have left to recv 
 	int n;
 
 	while (total < *len) {
@@ -41,10 +41,10 @@ int recvall(int s, char *buf, int *len) {
 		total += n;
 		bytesleft -= n;
 	}
-	*len = total; /* return number actually recv here */
-	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
-}
-int getIntFromMsg(int iFd,int Isize, int* retVal) {
+	*len = total; // return number actually recv here
+	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
+}*/
+/*int getIntFromMsg(int iFd,int Isize, int* retVal) {
 	char* sizeArr =(char*)malloc(Isize);
 	if (recvall(iFd, sizeArr, &Isize) == -1) {
 		free(sizeArr);
@@ -65,7 +65,7 @@ int getMSG(int iFd, struct msg * msg) {
 		return -1;
 	}
 	return 0;
-}
+}*/
 
 /**
  * Returns true if path is a directory
@@ -101,7 +101,7 @@ bool isStringNumeric(const char* str){
 	return true;
 }
 
-bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
+/*bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
 	FILE *f = fopen(filepath, "rb"); //Compilation error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
 
 	if (f == NULL) {
@@ -150,4 +150,19 @@ bool StringTofile(unsigned char* msg, unsigned char* filepath) {
 	}
 	fclose(f);
 	return true;
+}*/
+
+/**
+ * 	Gets 2 strings,
+ * 	Returns a concated string.
+ * 	Note: user of this function has to free allocation!
+ **/
+char* concat_strings(const char* str1, const char* str2){
+	char* concated_str = calloc((strlen(str1)+strlen(str2)+1),sizeof(char)); 
+	if((concated_str) == NULL){
+		return NULL;
+	}
+	strncpy(concated_str, str1, strlen(str1));
+	strncat(concated_str, str2, strlen(str2));
+	return concated_str;
 }

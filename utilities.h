@@ -1,3 +1,6 @@
+#ifndef UTILITIES_H_
+#define UTILITIES_H_
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <sys/types.h>
 # include <sys/socket.h>
@@ -37,19 +40,19 @@ struct msg {
 	int len;
 };
 
-void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
-unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
-bool fileToString(unsigned char** msg, unsigned char* filepath, long* fsize);
-bool StringTofile(unsigned char* msg,unsigned char* filepath);
+//void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
+//unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
+//bool fileToString(unsigned char** msg, unsigned char* filepath, long* fsize);
+//bool StringTofile(unsigned char* msg,unsigned char* filepath);
 
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);
 bool isStringNumeric(const char* str);
+char* concat_strings(const char* str1, const char* str2);
 
-int sendall(int s, char *buf, int *len);
-int recvall(int s, char *buf, int *len);
-int getIntFromMsg(int iFd, int Isize, int* retVal);
-int getMSG(int iFd, struct msg * msg);
+//int sendall(int s, char *buf, int *len);
+//int recvall(int s, char *buf, int *len);
+//int getIntFromMsg(int iFd, int Isize, int* retVal);
+//int getMSG(int iFd, struct msg * msg);
 
-
-
+#endif /*UTILITIES_H_*/
