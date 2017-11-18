@@ -1,15 +1,23 @@
 #include "utilities.h"
+/**
+ * prints bytes of const unsigned char* as ASCII
+ **/
 void printUnsignedCharArr(const unsigned char* arr, int len){
 	for(int i=0;i<len;i++){
 		printf("%c",*(arr+i));
 	}
 }
-
+/**
+ * converts iSizeInBytes first bytes in iNum to unsigned char* *iBuffer
+ **/
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer) {
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
 		iBuffer[iSizeInBytes - i - 1] = (iNum >> 8 * i) & 0xFF;
 	}
 }
+/**
+ * converts iSizeInBytes first bytes in unsigned char* iBuffer * to unsigned int
+ **/
 unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 	int res = 0;
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
@@ -51,18 +59,23 @@ int recvall(int s, unsigned char *buf, int *len) {
 	*len = total; // return number actually recv here
 	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
 }
-int getIntFromMsg(int iFd,int Isize, int* retVal) {
-	unsigned char* sizeArr =(unsigned char*)malloc(Isize);
-	if (recvall(iFd, sizeArr, &Isize) == -1) {
+/**
+ * reads iSize bytes and parse them to an int;
+ **/
+int getIntFromMsg(int iFd,int iSize, int* retVal) {
+	unsigned char* sizeArr =(unsigned char*)malloc(iSize);
+	if (recvall(iFd, sizeArr, &iSize) == -1) {
 		free(sizeArr);
 		return -1;
 	}
-	*retVal = stringToInt(sizeArr, Isize);
+	*retVal = stringToInt(sizeArr, iSize);
 	free(sizeArr);
 	return 0;
 	
 }
-
+/**
+ * get message from socket and parse it for a struct msg
+ **/
 int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
@@ -108,7 +121,10 @@ bool isStringNumeric(const char* str){
 	}
 	return true;
 }
-
+/**
+ * 	Gets pointer for writing the file, filePath, and pointer to long to save the length of the string
+ * 	Returns true/false if action was performed successfully. 
+ **/
 bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 	FILE *f = fopen(filepath, "rb");
 
