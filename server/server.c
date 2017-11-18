@@ -305,6 +305,74 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 	return ptr_all_users_info;
 }
 
+/**
+ * 	Helper function - initiates socket for the server to use.
+ * 	Updates *server_addr values
+ *  Returns:
+ * 		On success: the socketfd,
+ * 		On failure: -1.
+ **/
+static int init_sock(struct sockaddr_in* server_addr){
+	
+	int sockfd;
+	if((sockfd = socket(AF_INET, SOCK_STREAM,0) == -1){
+		printf("Creating socket failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+
+	memset(server_addr, '0', sizeof(struct sockaddr_in));
+	
+	(*server_addr).sin_family = AF_INET;
+	(*server_addr).sin_port = htons(port_number);
+	(*server_addr).sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if(bind(sockfd, server_addr, sizeof(struct sockaddr_in)) != 0){
+		printf("Binding socket to IP failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+	
+	if (listen(sockfd, BACKLOG_CONST_VALUE) != 0){
+		printf("Listen() failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+	
+	return sockfd;
+}
+
+void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
+	
+	bool is_connection_open;
+	int sockfd, connected_sockfd;
+
+	struct sockaddr_in server_addr, client_addr;
+
+	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
+		return;
+	}
+	
+	while(true){
+		
+		if((connected_sockfd = accept(sockfd, &client_addr, sizeof(client_addr))) == -1){
+			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
+			continue;
+		}
+		
+		is_connection_open = true;
+		
+		//TODO:: send hello message
+		//send();
+		while(is_connection_open){
+			//TODO:: fill :)
+			is_connection_open = false;
+		}
+		
+		if(close(connected_sockfd) == -1){
+			printf("Failed closing socket, error is: %s.\n Closing server.\n",strerror(errno));
+			return;
+		}
+	}
+
+}
 
 int main(int argc, char* argv[]){
 	
@@ -315,8 +383,10 @@ int main(int argc, char* argv[]){
 		printf("Initiating server failed\n");
 		return -1;
 	}
-	
 	//print_users_array(&ptr_all_users_info); //Test Line
+	
+	start_service(&ptr_all_users_info, &dir_path);
+	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
 	return 0;
