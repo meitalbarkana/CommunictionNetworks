@@ -206,21 +206,11 @@ static void delete_user_from_list(const char* username_to_delete, user_info*** p
  * 	at path "path". 
  *  Returns true if at least 1 directory was created.
  **/
-static bool create_directories(user_info*** ptr_to_all_users_info, const char* dir_path){
+static bool create_directories(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	bool res = false;
-	char* path;
-	//Make sure "path" includes character / at its end:
-	if ( dir_path[strlen(dir_path)-1] != '/' ) {
-		path = concat_strings(dir_path,"/");
-	} else {
-		path = concat_strings(dir_path,"");
-	}
-	if (path == NULL){
-		return false;
-	}
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){	
-		char* dir_name = concat_strings(path, (((*ptr_to_all_users_info)[i])->username));
+		char* dir_name = concat_strings((*ptr_dir_path), (((*ptr_to_all_users_info)[i])->username));
 		if (dir_name == NULL) { //Allocation failed:
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
@@ -234,13 +224,12 @@ static bool create_directories(user_info*** ptr_to_all_users_info, const char* d
 		}
 		free(dir_name);
 	}
-	free (path);
 	return res;
 }
 
 
-user_info** init_server(int argc, char* argv[]){
-	char *file_path, *dir_path;
+user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
+	char *file_path;
 	if (argc < 3 || argc > 4) {
 		printf("Wrong usage, format is: <file_server> <users_file> <directory file> [optional:port number]. Please try again\n");
 		return NULL;
@@ -257,8 +246,16 @@ user_info** init_server(int argc, char* argv[]){
 		printf("Path to directory doesn't exist or it's not a directory. Please try again.\n");
 		return NULL;
 	}
-	dir_path = argv[2];
-	//printf("Valid directory path provided is: %s\n", dir_path); //Test Line
+	//Make sure "*ptr_dir_path" includes character / at its end:
+	if ( (argv[2])[strlen(argv[2])-1] != '/' ) {
+		(*ptr_dir_path) = concat_strings(argv[2],"/");
+	} else {
+		(*ptr_dir_path) = concat_strings(argv[2],"");
+	}
+	if ((*ptr_dir_path) == NULL){
+		return NULL;
+	}
+	//printf("Valid directory path provided is: %s\n", (*ptr_dir_path)); //Test Line
 	
 	/** 
 	 * If a fourth argument (port number) was provided, checks if it's relevant (short unsigned, meaning in range of 1 to USHRT_MAX),
@@ -293,13 +290,15 @@ user_info** init_server(int argc, char* argv[]){
 				default:
 					printf("An error accured when trying to get file's stat or all lines were invalid (no user was added), couldn't proceed\n");
 		}
+		free((*ptr_dir_path));
 		return NULL;
 	}
 	//print_users_array(&ptr_all_users_info); //Test Line
 	
-	if(!create_directories(&ptr_all_users_info, dir_path)) {
+	if(!create_directories(&ptr_all_users_info, ptr_dir_path)) {
 		printf("No directories were created for users\n");
 		free_users_array(&ptr_all_users_info);
+		free((*ptr_dir_path));
 		return NULL;
 	}
 	
@@ -309,7 +308,8 @@ user_info** init_server(int argc, char* argv[]){
 
 int main(int argc, char* argv[]){
 	
-	user_info** ptr_all_users_info = init_server(argc, argv);
+	char* dir_path = NULL;
+	user_info** ptr_all_users_info = init_server(argc, argv, &dir_path);
 	
 	if(ptr_all_users_info == NULL) {
 		printf("Initiating server failed\n");
@@ -318,6 +318,6 @@ int main(int argc, char* argv[]){
 	
 	//print_users_array(&ptr_all_users_info); //Test Line
 	free_users_array(&ptr_all_users_info);
-	
+	free(dir_path);
 	return 0;
 }

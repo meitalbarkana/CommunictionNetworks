@@ -21,11 +21,14 @@ typedef struct{
  *  Helper function to free memory
  **/
 void free_users_array(user_info*** ptr_to_all_users_info);
+
 /**
+ * 	Initiates server according to parameters provided by user (argc, argv).
  *  If server initiation succeeded returns an array of pointers to user_info,
  *  otherwise returns NULL.
- * 	Note: user of this functions should free space allocated user_info**.
+ * 	*ptr_dir_path is updated so it will contain the address of directory in which all users-directories will be opened.	
+ * 	Note: user of this functions should free space allocated to user_info**, *ptr_dir_path.
  **/ 
-user_info** init_server(int argc, char* argv[]);
+user_info** init_server(int argc, char* argv[], char** ptr_dir_path);
 
 #endif /*SERVER_H_*/
