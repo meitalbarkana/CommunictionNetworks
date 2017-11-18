@@ -18,6 +18,8 @@
 #define MAX_PASSWORD_LEN 25 //This doesn't include null-terminator
 #define MAX_USERNAME_LEN 25 //This doesn't include null-terminator
 #define MAX_FILE_SIZE 512 //Bytes. more than enough since each username+password line takes 52 bytes at most, *15 lines
+#define MAX_FILE_PATH_LEN 255 //True for most file systems
+#define MAX_COMMAND_LEN (10+MAX_FILE_PATH_LEN) //For adding files with long path
 
 #define CLIENT_LOGIN_MSG 0
 #define CLIENT_FILES_LIST_MSG 1
@@ -27,8 +29,8 @@
 #define CLIENT_CLOSE_MSG 5
 
 #define SERVER_WELCOME_MSG 0
-#define SERVER_PLEASE_LOGIN_MSG 1
-#define SERVER_LOGIN_FAIL_MSG 2
+#define SERVER_LOGIN_PASS_MSG 1
+#define SERVER_LOGIN_FailedMSG 2
 #define SERVER_FILES_LIST_MSG 3
 #define SERVER_FILE_REMOVE_MSG 4
 #define SERVER_FILE_ADD_MSG 5
@@ -40,19 +42,19 @@ struct msg {
 	int len;
 };
 
-//void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
-//unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
-//bool fileToString(unsigned char** msg, unsigned char* filepath, long* fsize);
-//bool StringTofile(unsigned char* msg,unsigned char* filepath);
+void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
+unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
+bool fileToString(unsigned char** msg, const char* filepath, long* fsize);
+bool StringTofile(unsigned char* msg,const char* filepath);
 
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);
 bool isStringNumeric(const char* str);
 char* concat_strings(const char* str1, const char* str2);
 
-//int sendall(int s, char *buf, int *len);
-//int recvall(int s, char *buf, int *len);
-//int getIntFromMsg(int iFd, int Isize, int* retVal);
-//int getMSG(int iFd, struct msg * msg);
+int sendall(int s, unsigned char *buf, int *len);
+int recvall(int s, unsigned char *buf, int *len);
+int getIntFromMsg(int iFd, int Isize, int* retVal);
+int getMSG(int iFd, struct msg * msg);
 
 #endif /*UTILITIES_H_*/

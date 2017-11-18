@@ -14,7 +14,7 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 }*/
 
 //from slides
-/*int sendall(int s, char *buf, int *len) {
+int sendall(int s, unsigned char *buf, int *len) {
 
 	int total = 0; // how many bytes we've sent
 	int bytesleft = *len; // how many we have left to send
@@ -26,10 +26,11 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 		total += n;
 		bytesleft -= n;
 	}
-	*len = total; // return number actually sent here 
-	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
-}*/
-/*int recvall(int s, char *buf, int *len) {
+
+	*len = total; /* return number actually sent here */
+	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
+}
+int recvall(int s, unsigned char *buf, int *len) {
 
 	int total = 0; // how many bytes we've recv
 	int bytesleft = *len; // how many we have left to recv 
@@ -41,16 +42,17 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 		total += n;
 		bytesleft -= n;
 	}
-	*len = total; // return number actually recv here
-	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
-}*/
-/*int getIntFromMsg(int iFd,int Isize, int* retVal) {
-	char* sizeArr =(char*)malloc(Isize);
+
+	*len = total; /* return number actually recv here */
+	return n == -1 ? -1 : 0; /*-1 on failure, 0 on success */
+}
+int getIntFromMsg(int iFd,int Isize, int* retVal) {
+	unsigned char* sizeArr =(unsigned char*)malloc(Isize);
 	if (recvall(iFd, sizeArr, &Isize) == -1) {
 		free(sizeArr);
 		return -1;
 	}
-	*retVal = stringToInt(sizeArr, Isize); //Compiling error:expected ‘unsigned char *’ but argument is of type ‘char *’
+	*retVal = stringToInt(sizeArr, Isize);
 	free(sizeArr);
 	return 0;
 	
@@ -61,11 +63,12 @@ int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
 	msg->msg = (char*)malloc(msg->len);
 	if (recvall(iFd, msg->msg, &msg->len) == -1) {
+		printf("Error in receiving message");
 		free(msg->msg);
 		return -1;
 	}
 	return 0;
-}*/
+}
 
 /**
  * Returns true if path is a directory
@@ -101,8 +104,8 @@ bool isStringNumeric(const char* str){
 	return true;
 }
 
-/*bool fileToString(unsigned char** msg,unsigned char* filepath,long* fsize) {
-	FILE *f = fopen(filepath, "rb"); //Compilation error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
+bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
+	FILE *f = fopen(filepath, "rb");
 
 	if (f == NULL) {
 		printf("can't open file");
@@ -138,8 +141,8 @@ bool isStringNumeric(const char* str){
 	return true;
 }
 
-bool StringTofile(unsigned char* msg, unsigned char* filepath) {
-	FILE *f = fopen(filepath, "wb");//error: pointer targets in passing argument 1 of ‘fopen’ differ in signedness [-Wpointer-sign]
+bool StringTofile(unsigned char* msg, const char* filepath) {
+	FILE *f = fopen(filepath, "wb");
 	if (f == NULL) {
 		printf("can't open file");
 		return false;
@@ -150,11 +153,11 @@ bool StringTofile(unsigned char* msg, unsigned char* filepath) {
 	}
 	fclose(f);
 	return true;
-}*/
+}
 
 /**
  * 	Gets 2 strings,
- * 	Returns a concated string.
+ * 	Returns a concatenated string.
  * 	Note: user of this function has to free allocation!
  **/
 char* concat_strings(const char* str1, const char* str2){
