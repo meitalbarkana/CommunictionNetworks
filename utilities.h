@@ -10,6 +10,7 @@
 #include <string.h> // For strlen()
 #include <stdlib.h> // For malloc()/calloc()
 #include <errno.h>
+#include <dirent.h> //For working with directories
 
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
@@ -52,7 +53,7 @@ bool StringTofile(unsigned char* msg,const char* filepath);
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);
 bool isStringNumeric(const char* str);
-char* concat_strings(const char* str1, const char* str2);
+char* concat_strings(const char* str1, const char* str2, bool add_newline);
 
 int sendall(int s, unsigned char *buf, int *len);
 int recvall(int s, unsigned char *buf, int *len);

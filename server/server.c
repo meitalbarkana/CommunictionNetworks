@@ -210,7 +210,7 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 	bool res = false;
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){	
-		char* dir_name = concat_strings((*ptr_dir_path), (((*ptr_to_all_users_info)[i])->username));
+		char* dir_name = concat_strings((*ptr_dir_path), (((*ptr_to_all_users_info)[i])->username), false);
 		if (dir_name == NULL) { //Allocation failed:
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
@@ -248,9 +248,9 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 	}
 	//Make sure "*ptr_dir_path" includes character / at its end:
 	if ( (argv[2])[strlen(argv[2])-1] != '/' ) {
-		(*ptr_dir_path) = concat_strings(argv[2],"/");
+		(*ptr_dir_path) = concat_strings(argv[2],"/",false);
 	} else {
-		(*ptr_dir_path) = concat_strings(argv[2],"");
+		(*ptr_dir_path) = concat_strings(argv[2],"", false);
 	}
 	if ((*ptr_dir_path) == NULL){
 		return NULL;
@@ -432,6 +432,42 @@ bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff){
 	return ans;
 }
 
+/**
+ * 	Gets a valid directory name, 
+ * 	Returns a list of (regular) files in it, in format: <nameoffile1>\n<nameoffile2>\n...
+ * 	Number of files in that list would be <= MAX_FILES_FOR_USER
+ *  Note: user should free allocated memory (of returned char*)
+ **/
+static char* get_list_of_files(char* dir_path){
+	char* ret_val = concat_strings("","",false); //Allocates an empty string
+	char* temp_val = NULL;
+	DIR *dp;
+	struct dirent *ep;
+	int i = 0;
+	
+	dp = opendir (dir_path);
+	if (dp == NULL)
+    {
+		perror ("Couldn't open the directory");
+		return NULL;
+    }
+    
+	while ((ep = (struct dirent*)readdir(dp)) && (i < MAX_FILES_FOR_USER)){
+		if (ep->d_type == DT_REG){ //Insert only regular files to the list
+			temp_val = concat_strings(ret_val,ep->d_name, true); 
+			if (temp_val == NULL) { //Concat failed
+				break;
+			}
+			free(ret_val);
+			ret_val = temp_val;
+			++i;
+		}
+
+	}
+	closedir(dp);
+	return ret_val;
+}
+
 int main(int argc, char* argv[]){
 	
 	char* dir_path = NULL;
@@ -445,23 +481,11 @@ int main(int argc, char* argv[]){
 	
 	//start_service(&ptr_all_users_info, &dir_path);
 	
-	/**Test for validity of usernames**/
-	if (is_valid_user(&ptr_all_users_info, "User: user1\nPassword: 1234")){
-		printf("Details of user 1 are valid!\n");
-	} else {
-		printf("Details of user 1 are INvalid!\n");
-	}
-	if (is_valid_user(&ptr_all_users_info, "Username: user2\nPassword: 1234")){
-		printf("Details of user2 are valid!\n");
-	} else {
-		printf("Details of user2 are INvalid!\n");
-	}
-	if (is_valid_user(&ptr_all_users_info, "User: meital\nPassword: ilovepooch")){
-		printf("Details of meital are valid!\n");
-	} else {
-		printf("Details of meital are INvalid!\n");
-	}
-	/**END OF Test for validity of usernames**/
+	/** Tests get_list_of_files() **/
+	char* files_list = get_list_of_files(dir_path);
+	printf("files in directory %s are:\n%s\n", dir_path, files_list);
+	free(files_list);
+	/** END OF test **/
 	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);

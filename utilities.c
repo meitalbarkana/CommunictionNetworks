@@ -180,16 +180,19 @@ bool StringTofile(unsigned char* msg, const char* filepath) {
 }
 
 /**
- * 	Gets 2 strings,
+ * 	Gets 2 strings, and boolean that if true adds '\n' to the end of concatenated string.
  * 	Returns a concatenated string.
  * 	Note: user of this function has to free allocation!
  **/
-char* concat_strings(const char* str1, const char* str2){
-	char* concated_str = calloc((strlen(str1)+strlen(str2)+1),sizeof(char)); 
+char* concat_strings(const char* str1, const char* str2, bool add_newline){
+	char* concated_str = (add_newline) ? calloc((strlen(str1)+strlen(str2)+2),sizeof(char)) : calloc((strlen(str1)+strlen(str2)+1),sizeof(char)); 
 	if((concated_str) == NULL){
 		return NULL;
 	}
 	strncpy(concated_str, str1, strlen(str1));
 	strncat(concated_str, str2, strlen(str2));
+	if (add_newline) {
+		strncat(concated_str, "\n", 1);
+	}
 	return concated_str;
 }
