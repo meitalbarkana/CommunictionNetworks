@@ -19,6 +19,12 @@ typedef struct{
 	char* password;
 } user_info;
 
+enum DeleteFileStatus{
+	FILE_DELETED_SUCCESSFULLY,
+	FILE_WASNT_FOUND,
+	FILE_DELETION_FAILED
+};
+
 /**
  *  Helper function to free memory
  **/

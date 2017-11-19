@@ -214,6 +214,7 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 		if (dir_name == NULL) { //Allocation failed:
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+			i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 			continue;
 		}
 		if(mkdir(dir_name, (S_IRWXU||S_IRWXG||S_IRWXO)) ==0 ) { //If succeed creating the directory
@@ -221,6 +222,7 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 		} else { //Creating directory failed
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+			i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 		}
 		free(dir_name);
 	}
@@ -468,6 +470,31 @@ static char* get_list_of_files(char* dir_path){
 	return ret_val;
 }
 
+/**
+ *  Gets file_name of the file user asked to delete, and a path to the user's directory (that ends with '/')
+ * 	Deletes the asked file.
+ *  Returns: 1. FILE_DELETED_SUCCESSFULLY - on success
+ *			 2. FILE_WASNT_FOUND - if there's no such file
+ *			 3. FILE_DELETION_FAILED - if any other error accured.
+ **/
+static enum DeleteFileStatus delete_users_file(const char* file_name, const char* user_dir_path){
+	char* path_to_file = concat_strings(user_dir_path, file_name, false);
+	if (path_to_file == NULL) {
+		printf("Allocation error, couldn't create full path to file.\n");
+		return FILE_DELETION_FAILED;
+	}
+	if (!isValidFilePath(path_to_file)){ //checks if this is a regular file indeed
+		free(path_to_file);
+		return FILE_WASNT_FOUND;
+	}
+	int succeed_delete = remove(path_to_file);
+	free(path_to_file);
+	if (succeed_delete == 0) {
+		return FILE_DELETED_SUCCESSFULLY;
+	}
+	return FILE_DELETION_FAILED;
+} 
+
 int main(int argc, char* argv[]){
 	
 	char* dir_path = NULL;
@@ -481,10 +508,30 @@ int main(int argc, char* argv[]){
 	
 	//start_service(&ptr_all_users_info, &dir_path);
 	
-	/** Tests get_list_of_files() **/
-	char* files_list = get_list_of_files(dir_path);
-	printf("files in directory %s are:\n%s\n", dir_path, files_list);
-	free(files_list);
+	/** Tests delete_users_file() **/
+	free(get_list_of_files(dir_path));
+	printf("*******About deleting file \"meow.txt\": *********\n");
+	switch(delete_users_file("meow.txt", dir_path)){
+		case (FILE_DELETED_SUCCESSFULLY):
+			printf("File removed\n");
+			break;
+		case(FILE_WASNT_FOUND):
+			printf("No such file exists!\n");
+			break;
+		default: //==FILE_DELETION_FAILED
+			printf("An error accured trying to delete file\n");
+	}
+		printf("*******About deleting file \"mew2\": *********\n");
+	switch(delete_users_file("mew2", dir_path)){
+		case (FILE_DELETED_SUCCESSFULLY):
+			printf("File removed\n");
+			break;
+		case(FILE_WASNT_FOUND):
+			printf("No such file exists!\n");
+			break;
+		default: //==FILE_DELETION_FAILED
+			printf("An error accured trying to delete file - file was NOT removed\n");
+	}
 	/** END OF test **/
 	
 	free_users_array(&ptr_all_users_info);
