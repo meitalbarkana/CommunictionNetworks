@@ -506,10 +506,20 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 	
 	enum AddFileStatus ret =  FILE_ADDITION_FAILED;
 	
-	char* temp1 = concat_strings(dir_path, user_name, false);
-	char* temp2 = concat_strings(temp1, "/", false);
+	char *temp1, *temp2, *path_to_file;
+	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
+		return FILE_ADDITION_FAILED;
+	}
+	if((temp2 = concat_strings(temp1, "/", false)) == NULL){
+		free (temp1);
+		return FILE_ADDITION_FAILED;
+	}
 	free (temp1);
-	char* path_to_file = concat_strings(temp2, file_name, false);
+	if((path_to_file = concat_strings(temp2, file_name, false)) == NULL) {
+		free (temp1);
+		free (temp2);
+		return FILE_ADDITION_FAILED;
+	}
 	free(temp2);
 	
 	if(isValidFilePath(path_to_file)) { //Means this file already exist
