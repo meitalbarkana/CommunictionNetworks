@@ -308,76 +308,6 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 }
 
 /**
- * 	Helper function - initiates socket for the server to use.
- * 	Updates *server_addr values
- *  Returns:
- * 		On success: the socketfd,
- * 		On failure: -1.
- **//*
-static int init_sock(struct sockaddr_in* server_addr){
-	
-	int sockfd;
-	if((sockfd = socket(AF_INET, SOCK_STREAM,0) == -1){
-		printf("Creating socket failed, error is: %s.\n Closing server.\n",strerror(errno));
-		return -1;
-	}
-
-	memset(server_addr, '0', sizeof(struct sockaddr_in));
-	
-	(*server_addr).sin_family = AF_INET;
-	(*server_addr).sin_port = htons(port_number);
-	(*server_addr).sin_addr.s_addr = htonl(INADDR_ANY);
-
-	if(bind(sockfd, server_addr, sizeof(struct sockaddr_in)) != 0){
-		printf("Binding socket to IP failed, error is: %s.\n Closing server.\n",strerror(errno));
-		return -1;
-	}
-	
-	if (listen(sockfd, BACKLOG_CONST_VALUE) != 0){
-		printf("Listen() failed, error is: %s.\n Closing server.\n",strerror(errno));
-		return -1;
-	}
-	
-	return sockfd;
-}*/
-/*
-void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
-	
-	bool is_connection_open;
-	int sockfd, connected_sockfd;
-
-	struct sockaddr_in server_addr, client_addr;
-
-	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
-		return;
-	}
-	
-	while(true){
-		
-		if((connected_sockfd = accept(sockfd, &client_addr, sizeof(client_addr))) == -1){
-			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
-			continue;
-		}
-		
-		is_connection_open = true;
-		
-		//TODO:: send hello message
-		//send();
-		while(is_connection_open){
-			//TODO:: fill :)
-			is_connection_open = false;
-		}
-		
-		if(close(connected_sockfd) == -1){
-			printf("Failed closing socket, error is: %s.\n Closing server.\n",strerror(errno));
-			return;
-		}
-	}
-
-}
-*/
-
-/**
  * 	Returns true if usern_to_check & passw_to_check fits a valid user
  **/
 bool is_username_password_correct (user_info*** ptr_to_all_users_info,const char* usern_to_check, const char* passw_to_check){
@@ -556,12 +486,14 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 }
 
 /**
- * 	Helper function:updates (*txt) to contain error described in err_msg. 
- * 	If fails, (*txt) will be NULL
+ * 	Helper function:
+ *  	Allocates enough space so that (*txt) will contain a copy of the string str. 
+ * 		If fails, (*txt) will be NULL
+ *	Note: user of this function should free memory allocated in (*txt)
  **/
-static void update_error_in_txt(unsigned char* err_msg, unsigned char** txt){
-	if (((*txt) = calloc(strlen((char*)err_msg)+1, sizeof(unsigned char))) != NULL){
-		memcpy((*txt), err_msg, strlen((char*)err_msg)); // used calloc, no need to copy null-terminator
+static void cpy_str_to_txt(unsigned char* str, unsigned char** txt){
+	if (((*txt) = calloc(strlen((char*)str)+1, sizeof(unsigned char))) != NULL){
+		memcpy((*txt), str, strlen((char*)str)); // used calloc, no need to copy null-terminator
 	} 
 }
 
@@ -580,18 +512,18 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
 		char* path_to_file;
 		long file_size;
 		if ((path_to_file = generate_path_to_file(dir_path, user_name, file_name)) == NULL){ //Couldn't generate full-path to the file
-			update_error_in_txt((unsigned char*)"get_file failed: server allocation error", txt);
+			cpy_str_to_txt((unsigned char*)"get_file failed: server allocation error", txt);
 			return FILE_GET_FAILED;
 		}
 		
 		if(!isValidFilePath(path_to_file)){
-			update_error_in_txt((unsigned char*)"get_file failed: file doesn't exist or not regular file", txt);
+			cpy_str_to_txt((unsigned char*)"get_file failed: file doesn't exist or not regular file", txt);
 			free(path_to_file);
 			return FILE_DOESNT_EXIST;
 		}
 		
 		if(!fileToString(txt, path_to_file, &file_size)){
-			update_error_in_txt((unsigned char*)"get_file failed", txt);
+			cpy_str_to_txt((unsigned char*)"get_file failed", txt);
 			free(path_to_file);
 			return FILE_GET_FAILED;
 		}
@@ -599,6 +531,118 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
 		return FILE_CONTENT_IN_TXT_SUCCESSFULLY;
 }
 
+/**
+ * 	Helper function - initiates socket for the server to use.
+ * 	Updates (*server_addr) values
+ *  Returns:
+ * 		On success: the socketfd,
+ * 		On failure: -1.
+ **/
+ /*
+static int init_sock(struct sockaddr_in* server_addr){
+	
+	int sockfd;
+	if((sockfd = socket(AF_INET, SOCK_STREAM,0) == -1){
+		printf("Creating socket failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+
+	memset(server_addr, '0', sizeof(struct sockaddr_in));
+	
+	(*server_addr).sin_family = AF_INET;
+	(*server_addr).sin_port = htons(port_number);
+	(*server_addr).sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if(bind(sockfd, server_addr, sizeof(struct sockaddr_in)) != 0){
+		printf("Binding socket to IP failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+	
+	if (listen(sockfd, BACKLOG_CONST_VALUE) != 0){
+		printf("Listen() failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
+	
+	return sockfd;
+}
+*/
+
+/**
+ * 	Generetes the welcome message to send client - updates (*wel_msg) to contain it (including prefix)
+ * 	Returns: On success - length of the msg (including prefix)
+ * 			 On failure - -1
+ **/ 
+static int generate_welcome_msg(unsigned char** wel_msg){
+	char* str = "Welcome! Please log in.";
+	(*wel_msg) = calloc(SIZE_OF_PREFIX+strlen(str), sizeof(unsigned char));
+	if ((*wel_msg) == NULL) {
+		printf("Generating welcome message failed\n");
+		return -1;
+	}
+	intToString(strlen(str), SIZE_OF_LEN, *wel_msg); //Adds the length-prefix of welcome-msg (neto) to it
+	intToString(SERVER_WELCOME_MSG, SIZE_OF_TYPE, (*wel_msg)+SIZE_OF_LEN);
+	memcpy((*wel_msg)+SIZE_OF_PREFIX, str, strlen(str));
+	return SIZE_OF_PREFIX+strlen(str);
+}
+
+/**
+ * 	Returns true if succeeded sending a welcome message to sockfd, false otherwise
+ **/
+ /*
+static bool send_welcome_msg(int sockfd){
+	unsigned char* wel_msg;
+	int lenOfMsg;
+	
+	if (((lenOfMsg = generate_welcome_msg(&wel_msg)) < 0) || (sendall(sockfd, wel_msg, &lenOfMsg) < 0)) {
+		free(wel_msg);
+		return false;
+	}
+
+	free(wel_msg);
+	return true; 
+}
+
+void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
+	
+	bool is_connection_open;
+	int sockfd, connected_sockfd;
+
+	struct sockaddr_in server_addr, client_addr;
+
+	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
+		return;
+	}
+	
+	while(true){
+		
+		if((connected_sockfd = accept(sockfd, &client_addr, sizeof(client_addr))) == -1){
+			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
+			continue;
+		}
+		
+		is_connection_open = true;
+		
+		//TODO:: send hello message
+		if(!send_welcome_msg(connected_sockfd)){ //If failed sending hello message:
+			
+		}
+		
+		
+		
+		while(is_connection_open){
+			//TODO:: fill :)
+			is_connection_open = false;
+		}
+		
+		if(close(connected_sockfd) == -1){
+			printf("Failed closing socket, error is: %s.\n Closing server.\n",strerror(errno));
+			return;
+		}
+	}
+
+}
+
+*/
 
 int main(int argc, char* argv[]){
 	
@@ -613,52 +657,8 @@ int main(int argc, char* argv[]){
 	
 	//start_service(&ptr_all_users_info, &dir_path);
 	
-	/** Test for get_txt_from_file(const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name)**/
-	//Here to avoid errors of "defined but not used" and to create a file:
-	unsigned char* txt = (unsigned char*)"Blue jeans\nWhite shirt\nWalked into the room you know you made my eyes burn\n";
-	switch(write_txt_to_file(dir_path, ptr_all_users_info[0]->username, &txt, "Lana_Del_Rey")){
-		case (FILE_ADDED_SUCCESSFULLY):
-			printf("FILE ADDED SUCCESSFULLY!\n");
-			break;
-		case(FILE_ALREADY_EXIST):
-			printf("FILE ALREADY EXIST\n");
-			break;
-		default: //==FILE_ADDITION_FAILED
-			printf("Failed adding the file\n");
-	}
-
-	unsigned char* txt_ff;
-	switch(get_txt_from_file(dir_path, ptr_all_users_info[0]->username, &txt_ff, "Lana_Del_Rey")){
-			case (FILE_CONTENT_IN_TXT_SUCCESSFULLY):
-			printf("Lana_Del_Rey: FILE_CONTENT_IN_TXT_SUCCESSFULLY\n");
-			break;
-		case(FILE_DOESNT_EXIST):
-			printf("Lana_Del_Rey: FILE_DOESNT_EXIST\n");
-			break;
-		default: //==FILE_GET_FAILED
-			printf("Lana_Del_Rey: FILE_GET_FAILED\n");	
-	}
-	printf("***********************************************************************\n");
-	printf("File content is:\n%s\n***********************************************************************\n", txt_ff);
-	free(txt_ff);
-	
-	switch(get_txt_from_file(dir_path, ptr_all_users_info[1]->username, &txt_ff, "Meow")){
-			case (FILE_CONTENT_IN_TXT_SUCCESSFULLY):
-			printf("Meow: FILE_CONTENT_IN_TXT_SUCCESSFULLY\n");
-			break;
-		case(FILE_DOESNT_EXIST):
-			printf("Meow: FILE_DOESNT_EXIST\n");
-			break;
-		default: //==FILE_GET_FAILED
-			printf("Meow: FILE_GET_FAILED\n");	
-	}
-	printf("***********************************************************************\n");
-	printf("File content (Meow) is:\n%s\n***********************************************************************\n", txt_ff);
-	free(txt_ff);
-	
-	free(get_list_of_files(dir_path)); //Here just to avoid errors of "defined but not used"
-	delete_users_file("theres_no_such_file.txt", dir_path);//Here just to avoid errors of "defined but not used"
-	/** END OF test**/
+	unsigned char* w_msg;
+	generate_welcome_msg(&w_msg); //TODO:: TEST IT!
 	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
