@@ -168,11 +168,12 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 bool StringTofile(unsigned char* msg, const char* filepath) {
 	FILE *f = fopen(filepath, "wb");
 	if (f == NULL) {
-		printf("can't open file");
+		printf("Can't open file\n");
 		return false;
 	}
-	if (fprintf(f,"%s",msg) < 0) {
-		printf("can't write to file");
+	if (fprintf(f,"%s",msg) != strlen((char*)msg)) { //If not all characters were written. 
+													//(Casting is safe since strlen() searches for '\0', which is =='\0' whether signed/unsigned)	
+		printf("Failed writing to file / wrote partial message to file\n");
 		return false;
 	}
 	fclose(f);

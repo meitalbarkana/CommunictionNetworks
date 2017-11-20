@@ -217,7 +217,7 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 			i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 			continue;
 		}
-		if(mkdir(dir_name, (S_IRWXU||S_IRWXG||S_IRWXO)) ==0 ) { //If succeed creating the directory
+		if(mkdir(dir_name, (S_IRWXU | S_IRWXG | S_IRWXO)) ==0 ) { //If succeed creating the directory
 			res = true;
 		} else { //Creating directory failed
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
@@ -495,6 +495,39 @@ static enum DeleteFileStatus delete_users_file(const char* file_name, const char
 	return FILE_DELETION_FAILED;
 } 
 
+/**
+ * 	Gets a valid user_name, adds to his directory the file "file_name" which contains (*txt)
+ * 	Returns:
+ * 			1. FILE_ADDED_SUCCESSFULLY - on success,
+ *			2. FILE_ALREADY_EXIST - if file already exists, it WON'T be overwritten.
+ * 			3. FILE_ADDITION_FAILED - if failed
+ **/
+static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name){
+	
+	enum AddFileStatus ret =  FILE_ADDITION_FAILED;
+	
+	char* temp1 = concat_strings(dir_path, user_name, false);
+	char* temp2 = concat_strings(temp1, "/", false);
+	free (temp1);
+	char* path_to_file = concat_strings(temp2, file_name, false);
+	free(temp2);
+	
+	if(isValidFilePath(path_to_file)) { //Means this file already exist
+		ret = FILE_ALREADY_EXIST;
+	}
+	else 
+	{
+		if (!StringTofile(*txt, path_to_file)){ //Means writing *txt to file failed 
+			ret = FILE_ADDITION_FAILED;
+		} else {
+			ret = FILE_ADDED_SUCCESSFULLY;
+		}
+	}
+	
+	free(path_to_file);
+	return ret;
+}
+
 int main(int argc, char* argv[]){
 	
 	char* dir_path = NULL;
@@ -508,31 +541,25 @@ int main(int argc, char* argv[]){
 	
 	//start_service(&ptr_all_users_info, &dir_path);
 	
-	/** Tests delete_users_file() **/
-	free(get_list_of_files(dir_path));
-	printf("*******About deleting file \"meow.txt\": *********\n");
-	switch(delete_users_file("meow.txt", dir_path)){
-		case (FILE_DELETED_SUCCESSFULLY):
-			printf("File removed\n");
-			break;
-		case(FILE_WASNT_FOUND):
-			printf("No such file exists!\n");
-			break;
-		default: //==FILE_DELETION_FAILED
-			printf("An error accured trying to delete file\n");
+	/** Test for write_txt_to_file**/
+	unsigned char* txt = (unsigned char*)"Blue jeans\nWhite shirt\nWalked into the room you know you made my eyes burn\n";
+	for (size_t i = 0; i < 2; ++i) { //On 2nd time suppposed to fail
+		switch(write_txt_to_file(dir_path, ptr_all_users_info[0]->username, &txt, "Lana")){
+			case (FILE_ADDED_SUCCESSFULLY):
+				printf("FILE ADDED SUCCESSFULLY!\n");
+				break;
+			case(FILE_ALREADY_EXIST):
+				printf("FILE ALREADY EXIST\n");
+				break;
+			default: //==FILE_ADDITION_FAILED
+				printf("Failed adding the file\n");
+		}
 	}
-		printf("*******About deleting file \"mew2\": *********\n");
-	switch(delete_users_file("mew2", dir_path)){
-		case (FILE_DELETED_SUCCESSFULLY):
-			printf("File removed\n");
-			break;
-		case(FILE_WASNT_FOUND):
-			printf("No such file exists!\n");
-			break;
-		default: //==FILE_DELETION_FAILED
-			printf("An error accured trying to delete file - file was NOT removed\n");
-	}
-	/** END OF test **/
+	
+	free(get_list_of_files(dir_path)); //Here just to avoid errors of "defined but not used"
+	delete_users_file("theres_no_such_file.txt", dir_path);//Here just to avoid errors of "defined but not used"
+	/** END OF test**/
+	
 	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);

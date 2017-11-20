@@ -25,6 +25,12 @@ enum DeleteFileStatus{
 	FILE_DELETION_FAILED
 };
 
+enum AddFileStatus{
+	FILE_ADDED_SUCCESSFULLY,
+	FILE_ALREADY_EXIST,
+	FILE_ADDITION_FAILED
+};
+
 /**
  *  Helper function to free memory
  **/
