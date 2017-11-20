@@ -380,7 +380,7 @@ static char* get_list_of_files(char* dir_path){
 	dp = opendir (dir_path);
 	if (dp == NULL)
     {
-		perror ("Couldn't open the directory");
+		printf("Couldn't open the directory\n");
 		return NULL;
     }
     
@@ -601,7 +601,42 @@ static bool send_welcome_msg(int sockfd){
 	free(wel_msg);
 	return true; 
 }
+*/
 
+/**
+ * 	Generetes the status msg to send client - updates (*wel_msg) to contain it (including prefix)
+ * 	Gets the USERs directory path, valid user's name.
+ * 	Returns: On success: length of the msg (including prefix)
+ * 			 On failure: -1
+ **/ 
+static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_path, const char* user_name){
+	size_t max_info_len = strlen("Hi , you have  files stored.") + MAX_USERNAME_LEN + 10; //Maximum int=2^32 decimal-representation uses 10 characters
+	int num_files = number_of_files_in_directory(user_dir_path, MAX_FILES_FOR_USER);
+	char* buff;
+	if ((num_files < 0) || ((buff = calloc(max_info_len+1,sizeof(char))) == NULL)){
+		printf("Couldn't generate status message\n");
+		return -1;
+	}
+	
+	sprintf(buff,"Hi %s, you have %d files stored.", user_name, num_files); //Since num_files>=0, it'll be safe to convert buff afterwards to unsigned
+	printf("Buff is: %s\n",buff);//TODO:: DELETE THIS LINE - FOR TESTING ONLY!!
+	
+	(*wel_msg) = calloc(SIZE_OF_PREFIX+strlen(buff), sizeof(unsigned char));
+	if ((*wel_msg) == NULL) {
+		printf("Generating status message failed\n");
+		free(buff);
+		return -1;
+	}
+	intToString(strlen(buff), SIZE_OF_LEN, *wel_msg); //Adds the length-prefix of welcome-msg (neto) to it
+	intToString(SERVER_USERSTAT_MSG, SIZE_OF_TYPE, (*wel_msg)+SIZE_OF_LEN);
+	memcpy((*wel_msg)+SIZE_OF_PREFIX, buff, strlen(buff));
+	int ret_val = SIZE_OF_PREFIX+strlen(buff);
+	free(buff);
+	return ret_val;
+}
+
+
+/*
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	
 	bool is_connection_open;
@@ -622,12 +657,12 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 		is_connection_open = true;
 		
-		//TODO:: send hello message
-		if(!send_welcome_msg(connected_sockfd)){ //If failed sending hello message:
-			
+		//Send hello message to client:
+		if(!send_welcome_msg(connected_sockfd)){ //If failed sending hello message, continues to next client
+			continue;
 		}
 		
-		
+		//TODO:: send status message.
 		
 		while(is_connection_open){
 			//TODO:: fill :)
@@ -656,10 +691,7 @@ int main(int argc, char* argv[]){
 	//print_users_array(&ptr_all_users_info); //Test Line
 	
 	//start_service(&ptr_all_users_info, &dir_path);
-	
-	unsigned char* w_msg;
-	generate_welcome_msg(&w_msg); //TODO:: TEST IT!
-	
+		
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
 	return 0;

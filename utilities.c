@@ -197,3 +197,32 @@ char* concat_strings(const char* str1, const char* str2, bool add_newline){
 	}
 	return concated_str;
 }
+
+/**
+ * 	Gets a path to a directory, and a maximum number of files to check
+ * 	Returns:
+ * 			-1 if an error occured/it's not a directory
+ * 			otherwise, the number of regular files in the directory
+ **/
+int number_of_files_in_directory(const char* dir_path, int max_val){
+	int counter = 0;
+	int i = 0;
+	DIR *dp;
+	struct dirent *ep;
+	
+	dp = opendir (dir_path);
+	if (dp == NULL)
+    {
+		printf("Couldn't open the directory\n");
+		return -1;
+    }
+    
+	while ((ep = (struct dirent*)readdir(dp)) && (i < max_val)){
+		if (ep->d_type == DT_REG){ //Counts only regular files to the list
+			counter++;
+		}
+		++i;
+	}
+	closedir(dp);
+	return counter;
+}

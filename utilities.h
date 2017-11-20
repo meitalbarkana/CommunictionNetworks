@@ -37,6 +37,7 @@
 #define SERVER_FILE_REMOVE_MSG 4
 #define SERVER_FILE_ADD_MSG 5
 #define SERVER_FILE_DOWNLOAD_MSG 6
+#define SERVER_USERSTAT_MSG 7
 
 struct msg {
 	unsigned char* msg;
@@ -54,6 +55,7 @@ bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);
 bool isStringNumeric(const char* str);
 char* concat_strings(const char* str1, const char* str2, bool add_newline);
+int number_of_files_in_directory(const char* dir_path, int max_val);
 
 int sendall(int s, unsigned char *buf, int *len);
 int recvall(int s, unsigned char *buf, int *len);
