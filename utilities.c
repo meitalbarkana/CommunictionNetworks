@@ -129,31 +129,31 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 	FILE *f = fopen(filepath, "rb");
 
 	if (f == NULL) {
-		printf("can't open file");
+		printf("Can't open file\n");
 		return false;
 	}
 
 	if (fseek(f, 0, SEEK_END) != 0) {
-		printf("fseek failed");
+		printf("fseek failed\n");
 		return false;
 	}
 	 *fsize = ftell(f);
 	if (*fsize == -1L) {
-		printf("ftell failed");
+		printf("ftell failed\n");
 		return false;
 	}
 	if (fseek(f, 0, SEEK_SET) != 0) {
-		printf("fseek failed");
+		printf("fseek failed\n");
 		return false;
 	}
 
 	*msg = (unsigned char *)malloc(*fsize + 1);
 	if (*msg == NULL) {
-		printf("malloc failed");
+		printf("malloc failed\n");
 		return false;
 	}
 	if (fread(*msg, *fsize, 1, f) < 1) {
-		printf("fread failed");
+		printf("fread failed\n");
 		return false;
 	}
 	fclose(f);

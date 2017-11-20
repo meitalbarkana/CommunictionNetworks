@@ -19,7 +19,7 @@
 #define MAX_USERS 15
 #define MAX_PASSWORD_LEN 25 //This doesn't include null-terminator
 #define MAX_USERNAME_LEN 25 //This doesn't include null-terminator
-#define MAX_FILE_SIZE 512 //Bytes. more than enough since each username+password line takes 52 bytes at most, *15 lines
+#define MAX_FILE_SIZE 512 //Bytes. more than enough since each username+password line takes 52 bytes at most, *15 lines. It's also maximum file size to send/get
 #define MAX_FILE_PATH_LEN 255 //True for most file systems
 #define MAX_COMMAND_LEN (10+MAX_FILE_PATH_LEN) //For adding files with long path
 

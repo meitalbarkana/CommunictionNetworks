@@ -31,6 +31,12 @@ enum AddFileStatus{
 	FILE_ADDITION_FAILED
 };
 
+enum GetFileStatus{
+	FILE_CONTENT_IN_TXT_SUCCESSFULLY,
+	FILE_DOESNT_EXIST,
+	FILE_GET_FAILED
+};
+
 /**
  *  Helper function to free memory
  **/

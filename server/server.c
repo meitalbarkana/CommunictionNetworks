@@ -111,7 +111,7 @@ static bool alloc_userinfo(user_info*** ptr_to_all_users_info, size_t len_temp_u
  **/
 static enum ServerErrors get_users_info_from_file(const char* path_to_file,user_info*** ptr_to_all_users_info){
 	struct stat st;
-	if ((stat(path_to_file, &st) != 0) || (st.st_size <= 0)) { //st_size is of type off_t which is signed integer - so might be negative, if an error accured..
+	if ((stat(path_to_file, &st) != 0) || (st.st_size <= 0)) { //st_size is of type off_t which is signed integer - so might be negative, if an error occurred..
 		return USERS_FILE_ERR;
 	} else if (st.st_size > MAX_FILE_SIZE) {
 		return USERS_FILE_TOO_BIG;
@@ -290,7 +290,7 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 					printf("Opening user-file failed, couldn't proceed\n");
 					break;
 				default:
-					printf("An error accured when trying to get file's stat or all lines were invalid (no user was added), couldn't proceed\n");
+					printf("An error occurred when trying to get file's stat or all lines were invalid (no user was added), couldn't proceed\n");
 		}
 		free((*ptr_dir_path));
 		return NULL;
@@ -475,7 +475,7 @@ static char* get_list_of_files(char* dir_path){
  * 	Deletes the asked file.
  *  Returns: 1. FILE_DELETED_SUCCESSFULLY - on success
  *			 2. FILE_WASNT_FOUND - if there's no such file
- *			 3. FILE_DELETION_FAILED - if any other error accured.
+ *			 3. FILE_DELETION_FAILED - if any other error occurred.
  **/
 static enum DeleteFileStatus delete_users_file(const char* file_name, const char* user_dir_path){
 	char* path_to_file = concat_strings(user_dir_path, file_name, false);
@@ -496,7 +496,35 @@ static enum DeleteFileStatus delete_users_file(const char* file_name, const char
 } 
 
 /**
- * 	Gets a valid user_name, adds to his directory the file "file_name" which contains (*txt)
+ * 	Helper function, that on success returns a string representing full path to file_name:
+ * 	(in format: dir_path/user_name/file_name)
+ * 	Note: dir_path already contains '/' at its end.
+ *		  User of this function should free allocated memory of the string returned.
+ * 	Returns NULL if failed.
+ **/
+static char* generate_path_to_file(const char* dir_path, const char* user_name, const char* file_name){
+	char *temp1, *temp2, *path_to_file;
+	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
+		return NULL;
+	}
+	if((temp2 = concat_strings(temp1, "/", false)) == NULL){
+		free (temp1);
+		return NULL;
+	}
+	free (temp1);
+	if((path_to_file = concat_strings(temp2, file_name, false)) == NULL) {
+		free (temp1);
+		free (temp2);
+		return NULL;
+	}
+	free(temp2);
+	return path_to_file;
+}
+
+
+/**
+ * 	Gets a valid user_name, the directory-path that contains all users directories,
+ *  adds to the user directory the file "file_name" which contains (*txt).
  * 	Returns:
  * 			1. FILE_ADDED_SUCCESSFULLY - on success,
  *			2. FILE_ALREADY_EXIST - if file already exists, it WON'T be overwritten.
@@ -506,21 +534,10 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 	
 	enum AddFileStatus ret =  FILE_ADDITION_FAILED;
 	
-	char *temp1, *temp2, *path_to_file;
-	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
+	char* path_to_file;
+	if((path_to_file = generate_path_to_file(dir_path, user_name, file_name)) == NULL ){ //Couldn't generate full-path to the file
 		return FILE_ADDITION_FAILED;
 	}
-	if((temp2 = concat_strings(temp1, "/", false)) == NULL){
-		free (temp1);
-		return FILE_ADDITION_FAILED;
-	}
-	free (temp1);
-	if((path_to_file = concat_strings(temp2, file_name, false)) == NULL) {
-		free (temp1);
-		free (temp2);
-		return FILE_ADDITION_FAILED;
-	}
-	free(temp2);
 	
 	if(isValidFilePath(path_to_file)) { //Means this file already exist
 		ret = FILE_ALREADY_EXIST;
@@ -538,6 +555,51 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 	return ret;
 }
 
+/**
+ * 	Helper function:updates (*txt) to contain error described in err_msg. 
+ * 	If fails, (*txt) will be NULL
+ **/
+static void update_error_in_txt(unsigned char* err_msg, unsigned char** txt){
+	if (((*txt) = calloc(strlen((char*)err_msg)+1, sizeof(unsigned char))) != NULL){
+		memcpy((*txt), err_msg, strlen((char*)err_msg)); // used calloc, no need to copy null-terminator
+	} 
+}
+
+/**
+ * 	Gets a valid user_name, the directory-path that contains all users directories, and the name of the file asked by the client.
+ * 	Updates (*txt) to contain:
+ * 		 On success - the content of the file "file_name"
+ * 		 On failure - the reason for failure/NULL
+ *  Returns:
+ * 		 1. FILE_CONTENT_IN_TXT_SUCCESSFULLY - if succeeded
+ *		 2.	FILE_DOESNT_EXIST - if file doesn't exist 
+ *		 3. FILE_GET_FAILED - if ant other error occurred
+ * 	Note: user has to free memory allocated in (*txt)
+ **/
+static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name){
+		char* path_to_file;
+		long file_size;
+		if ((path_to_file = generate_path_to_file(dir_path, user_name, file_name)) == NULL){ //Couldn't generate full-path to the file
+			update_error_in_txt((unsigned char*)"get_file failed: server allocation error", txt);
+			return FILE_GET_FAILED;
+		}
+		
+		if(!isValidFilePath(path_to_file)){
+			update_error_in_txt((unsigned char*)"get_file failed: file doesn't exist or not regular file", txt);
+			free(path_to_file);
+			return FILE_DOESNT_EXIST;
+		}
+		
+		if(!fileToString(txt, path_to_file, &file_size)){
+			update_error_in_txt((unsigned char*)"get_file failed", txt);
+			free(path_to_file);
+			return FILE_GET_FAILED;
+		}
+		free(path_to_file);
+		return FILE_CONTENT_IN_TXT_SUCCESSFULLY;
+}
+
+
 int main(int argc, char* argv[]){
 	
 	char* dir_path = NULL;
@@ -551,25 +613,52 @@ int main(int argc, char* argv[]){
 	
 	//start_service(&ptr_all_users_info, &dir_path);
 	
-	/** Test for write_txt_to_file**/
+	/** Test for get_txt_from_file(const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name)**/
+	//Here to avoid errors of "defined but not used" and to create a file:
 	unsigned char* txt = (unsigned char*)"Blue jeans\nWhite shirt\nWalked into the room you know you made my eyes burn\n";
-	for (size_t i = 0; i < 2; ++i) { //On 2nd time suppposed to fail
-		switch(write_txt_to_file(dir_path, ptr_all_users_info[0]->username, &txt, "Lana")){
-			case (FILE_ADDED_SUCCESSFULLY):
-				printf("FILE ADDED SUCCESSFULLY!\n");
-				break;
-			case(FILE_ALREADY_EXIST):
-				printf("FILE ALREADY EXIST\n");
-				break;
-			default: //==FILE_ADDITION_FAILED
-				printf("Failed adding the file\n");
-		}
+	switch(write_txt_to_file(dir_path, ptr_all_users_info[0]->username, &txt, "Lana_Del_Rey")){
+		case (FILE_ADDED_SUCCESSFULLY):
+			printf("FILE ADDED SUCCESSFULLY!\n");
+			break;
+		case(FILE_ALREADY_EXIST):
+			printf("FILE ALREADY EXIST\n");
+			break;
+		default: //==FILE_ADDITION_FAILED
+			printf("Failed adding the file\n");
 	}
+
+	unsigned char* txt_ff;
+	switch(get_txt_from_file(dir_path, ptr_all_users_info[0]->username, &txt_ff, "Lana_Del_Rey")){
+			case (FILE_CONTENT_IN_TXT_SUCCESSFULLY):
+			printf("Lana_Del_Rey: FILE_CONTENT_IN_TXT_SUCCESSFULLY\n");
+			break;
+		case(FILE_DOESNT_EXIST):
+			printf("Lana_Del_Rey: FILE_DOESNT_EXIST\n");
+			break;
+		default: //==FILE_GET_FAILED
+			printf("Lana_Del_Rey: FILE_GET_FAILED\n");	
+	}
+	printf("***********************************************************************\n");
+	printf("File content is:\n%s\n***********************************************************************\n", txt_ff);
+	free(txt_ff);
+	
+	switch(get_txt_from_file(dir_path, ptr_all_users_info[1]->username, &txt_ff, "Meow")){
+			case (FILE_CONTENT_IN_TXT_SUCCESSFULLY):
+			printf("Meow: FILE_CONTENT_IN_TXT_SUCCESSFULLY\n");
+			break;
+		case(FILE_DOESNT_EXIST):
+			printf("Meow: FILE_DOESNT_EXIST\n");
+			break;
+		default: //==FILE_GET_FAILED
+			printf("Meow: FILE_GET_FAILED\n");	
+	}
+	printf("***********************************************************************\n");
+	printf("File content (Meow) is:\n%s\n***********************************************************************\n", txt_ff);
+	free(txt_ff);
 	
 	free(get_list_of_files(dir_path)); //Here just to avoid errors of "defined but not used"
 	delete_users_file("theres_no_such_file.txt", dir_path);//Here just to avoid errors of "defined but not used"
 	/** END OF test**/
-	
 	
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
