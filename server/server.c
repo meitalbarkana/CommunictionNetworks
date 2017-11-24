@@ -587,7 +587,7 @@ static int generate_welcome_msg(unsigned char** wel_msg){
 /**
  * 	Returns true if succeeded sending a welcome message to sockfd, false otherwise
  **/
- /*
+ 
 static bool send_welcome_msg(int sockfd){
 	unsigned char* wel_msg;
 	int lenOfMsg;
@@ -600,7 +600,7 @@ static bool send_welcome_msg(int sockfd){
 	free(wel_msg);
 	return true; 
 }
-*/
+
 
 /**
  * 	Generetes the status msg to send client - updates (*wel_msg) to contain it (including prefix)
@@ -618,7 +618,7 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 	}
 	
 	sprintf(buff,"Hi %s, you have %d files stored.", user_name, num_files); //Since num_files>=0, it'll be safe to convert buff afterwards to unsigned
-	printf("Buff is: %s\n",buff);//TODO:: DELETE THIS LINE - FOR TESTING ONLY!!
+	//printf("Buff is: %s\n",buff);//TODO:: DELETE THIS LINE - FOR TESTING ONLY!!
 	
 	(*wel_msg) = calloc(SIZE_OF_PREFIX+strlen(buff), sizeof(unsigned char));
 	if ((*wel_msg) == NULL) {
@@ -627,7 +627,7 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 		return -1;
 	}
 	intToString(strlen(buff), SIZE_OF_LEN, *wel_msg); //Adds the length-prefix of welcome-msg (neto) to it
-	intToString(SERVER_USERSTAT_MSG, SIZE_OF_TYPE, (*wel_msg)+SIZE_OF_LEN);
+	intToString(SERVER_LOGIN_PASS_MSG, SIZE_OF_TYPE, (*wel_msg)+SIZE_OF_LEN);
 	memcpy((*wel_msg)+SIZE_OF_PREFIX, buff, strlen(buff));
 	int ret_val = SIZE_OF_PREFIX+strlen(buff);
 	free(buff);
@@ -653,11 +653,50 @@ static bool get_user_details(int sockfd, char** user_name, user_info*** ptr_to_a
 	return true;
 }
 
+/**
+ * 	Sends client a message that login failed.
+ * 	Returns true if succeded
+ **/
+static bool send_server_login_failed_msg(int sockfd){
+	int len = SIZE_OF_PREFIX;
+	char* msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
+	if (*msg == NULL) {
+		printf("Allocating msg space failed\n");
+		return false;
+	}
+	intToString(0, SIZE_OF_LEN, msg);
+	intToString(SERVER_LOGIN_FAIL_MSG, SIZE_OF_TYPE, msg + SIZE_OF_LEN);
+	if (sendall(sockfd, msg, &len) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return true;
+}
+
+/**
+ * Sends client a message with the status [format: "Hi <username>, you have <|files in users' directory|> files stored."]
+ * Returns true if succeeded.
+ **/
+static bool send_status_msg(int sockfd, const char* user_dir_path, const char* user_name){
+	unsigned char* wel_msg;
+	int msg_len = generate_status_msg(&wel_msg, user_dir_path, user_name);
+	if(msg_len < 0) {
+		return false;
+	}
+	if (sendall(sockfd, wel_msg, &msg_len) < 0) {
+		free(wel_msg);
+		return false;
+	}
+	free(wel_msg);
+	return true;
+}
+
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	
 	bool is_connection_open, is_authenticated;
 	int sockfd, connected_sockfd;
-	char* curr_username;
+	char *curr_username, *curr_user_dir_path;
 	struct sockaddr_in server_addr, client_addr;
 
 	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
@@ -678,20 +717,35 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 			continue;
 		}
 		
-		//Validate user:
+		//Validate user: gives the user ALLOWED_TRIALS number of trials to authenticate
 		for (size_t i = 0; i < ALLOWED_TRIALS; ++i){
 			is_authenticated = get_user_details(connected_sockfd, &curr_username, ptr_to_all_users_info);
 			if(!is_authenticated){
-				//TODO:: send message "user authentication failed" or something like that
-				send_server_login_failed_msg();//TODO:: add this function
+				send_server_login_failed_msg(connected_sockfd);
 				continue;
 			} else {
 				break; //user validated, gets out of "for" loop
 			}
 		}
 
-		//TODO:: send status message.
+		if(!is_authenticated){
+			continue; //To next client
+		}
 		
+		//If gets here, user authenticated:
+		if((curr_user_dir_path = concat_strings(*ptr_dir_path, curr_username, false)) == NULL){
+			printf("Failed creating path to user directory\n");//Not supposed to get here.
+			free(curr_username);
+			continue;//To next client
+		}
+		//Sends status message:
+		if (!send_status_msg(connected_sockfd, curr_user_dir_path, curr_username)){
+			printf("Failed sending user the status message. Continuing to next client.\n");//Not supposed to get here.
+			free(curr_user_dir_path);
+			free(curr_username);
+			continue;
+		}
+		//Waits for client requests	
 		while(is_connection_open){
 			//TODO:: fill :)
 			is_connection_open = false;
@@ -699,8 +753,14 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 		if(close(connected_sockfd) == -1){
 			printf("Failed closing socket, error is: %s.\n Closing server.\n",strerror(errno));
+			free(curr_username);
+			free(curr_user_dir_path);
 			return;
 		}
+		
+		free(curr_username);
+		free(curr_user_dir_path);
+		curr_username = curr_user_dir_path = NULL;
 	}
 
 }

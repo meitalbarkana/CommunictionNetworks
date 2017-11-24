@@ -37,9 +37,8 @@
 #define SERVER_FILE_REMOVE_MSG 4
 #define SERVER_FILE_ADD_MSG 5
 #define SERVER_FILE_DOWNLOAD_MSG 6
-#define SERVER_USERSTAT_MSG 7
 
-extern const int ALLOWED_TRIALS = 3;
+#define ALLOWED_TRIALS 3
 
 struct msg {
 	unsigned char* msg;
