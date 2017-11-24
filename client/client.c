@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	bool connected = false;
-	while (!connected) {
+	for(int i=0;i<ALLOWED_TRIALS && !connected;i++){
 		unsigned char* msg;
 		int len;
 		if ((len = generateLoginMSG(&msg)) == -1
@@ -264,6 +264,13 @@ int main(int argc, char *argv[]) {
 		}
 		connected = GetServerLoginMsg(socketfd);
 	}
+	if(!connected){
+		printf("Could not login to server");
+				close(socketfd);
+				return -1;
+	}
+
+	// action with the server
 	bool askedToQuit = false;
 	while (!askedToQuit) {
 		char CommandArr[MAX_COMMAND_LEN];
