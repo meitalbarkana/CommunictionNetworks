@@ -79,9 +79,12 @@ int getIntFromMsg(int iFd,int iSize, int* retVal) {
 int getMSG(int iFd, struct msg * msg) {
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
-	msg->msg = (unsigned char*)malloc(msg->len);
+	if ((msg->msg = (unsigned char*)malloc(msg->len)) == NULL){
+		printf("Error in allocating space for receiving message\n");
+		return -1;
+	}
 	if (recvall(iFd, msg->msg, &msg->len) == -1) {
-		printf("Error in receiving message");
+		printf("Error in receiving message\n");
 		free(msg->msg);
 		return -1;
 	}

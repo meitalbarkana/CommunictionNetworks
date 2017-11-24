@@ -323,44 +323,43 @@ bool is_username_password_correct (user_info*** ptr_to_all_users_info,const char
 /**
  * 	Gets: char** usern , char** passw - pointers to addresses allocted&nullified in sizes of MAX_USERNAME_LEN+1,MAX_PASSWORD_LEN+1 accordingly.
  * 	If buff is indeed of the format:
- * 	"User: <username>
- * 	 Password: <password>"
+ * 	"<username>\n<password>\n"
  * 	updates (*usern), (*passw) to contain the relevant values and returns true.
  * 	Otherwise, returns false.
  **/
 bool exstract_username_password_from_msg(const char* buff, char** usern , char** passw){
-	size_t max_valid_len = MAX_PASSWORD_LEN+MAX_USERNAME_LEN+strlen("User: \nPassword: ");
+	size_t max_valid_len = MAX_PASSWORD_LEN+MAX_USERNAME_LEN+strlen("\n\n");
 	if (strlen(buff)>max_valid_len){
 		return false;
 	}
-	if (sscanf(buff, "User: %s\nPassword: %s", (*usern),(*passw)) !=2){
+	if (sscanf(buff, "%s\n%s\n", (*usern),(*passw)) != 2){
 		return false;
 	}
 	return true;
 } 
 
 /**
- * 	Returns true if buff indeed == "User: <username>\nPassword: <password>" of a valid user
+ * 	Returns true if buff indeed == "<username>\n<password>\n" of a valid user
+ * 	Updates *user_name to contain the valid username
  **/
-bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff){
+static bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff, char** user_name){
 	bool ans = false;
-	char *usern_to_check, *passw_to_check;
-	if ((usern_to_check = calloc(MAX_USERNAME_LEN*2, sizeof(char))) == NULL){ //*2 to make sure no overflow would happen in "exstract_username_password_from_msg()"
+	char *passw_to_check;
+	if (((*user_name) = calloc(MAX_USERNAME_LEN*2, sizeof(char))) == NULL){ //*2 to make sure no overflow would happen in "exstract_username_password_from_msg()"
 		printf("Allocation failed\n");
 		return false;
 	}
 	if ((passw_to_check = calloc(MAX_PASSWORD_LEN*2, sizeof(char))) == NULL){
 		printf("Allocation failed\n");
-		free (usern_to_check);
+		free (*user_name);
 		return false;
 	}
-	if(!exstract_username_password_from_msg(buff, &usern_to_check, &passw_to_check)){
+	if(!exstract_username_password_from_msg(buff, user_name, &passw_to_check)){
 		printf("Invalid format. please try again, use format:\nUser: <username>\nPassword: <password>\n");//ans = false
 	} else {
-		ans = is_username_password_correct(ptr_to_all_users_info, usern_to_check, passw_to_check);
+		ans = is_username_password_correct(ptr_to_all_users_info, *user_name, passw_to_check);
 	}
 	free(passw_to_check);
-	free(usern_to_check);
 	return ans;
 }
 
@@ -635,13 +634,30 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 	return ret_val;
 }
 
+/**
+ * 	Gets an open socket fd, waits for client to authenticate.
+ * 	If client sent valid info, updates user_name to contain clients' username.
+ * 	Returns true if suceeded, false otherwise.
+ **/
+static bool get_user_details(int sockfd, char** user_name, user_info*** ptr_to_all_users_info){
+	struct msg m = { NULL, -1, -1 };
+	if((getMSG(sockfd, &m) < 0) || (m.type != CLIENT_LOGIN_MSG)){
+		return false; //failed getting msg
+	}
+	if(!is_valid_user(ptr_to_all_users_info, m.msg, user_name)){ //m.msg might need casting to char*, check it..
+		if (*user_name != NULL){
+			free(*user_name);
+		}
+		return false;
+	}
+	return true;
+}
 
-/*
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	
-	bool is_connection_open;
+	bool is_connection_open, is_authenticated;
 	int sockfd, connected_sockfd;
-
+	char* curr_username;
 	struct sockaddr_in server_addr, client_addr;
 
 	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
@@ -662,6 +678,18 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 			continue;
 		}
 		
+		//Validate user:
+		for (size_t i = 0; i < ALLOWED_TRIALS; ++i){
+			is_authenticated = get_user_details(connected_sockfd, &curr_username, ptr_to_all_users_info);
+			if(!is_authenticated){
+				//TODO:: send message "user authentication failed" or something like that
+				send_server_login_failed_msg();//TODO:: add this function
+				continue;
+			} else {
+				break; //user validated, gets out of "for" loop
+			}
+		}
+
 		//TODO:: send status message.
 		
 		while(is_connection_open){
@@ -677,7 +705,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 
 }
 
-*/
+
 
 int main(int argc, char* argv[]){
 	

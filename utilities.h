@@ -39,6 +39,8 @@
 #define SERVER_FILE_DOWNLOAD_MSG 6
 #define SERVER_USERSTAT_MSG 7
 
+extern const int ALLOWED_TRIALS = 3;
+
 struct msg {
 	unsigned char* msg;
 	int type;
