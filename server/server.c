@@ -347,11 +347,11 @@ bool exstract_username_password_from_msg(const char* buff, char** usern , char**
  * 
  * Note: user of this function should free memory allocated in it
  **/
-static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , char* txt, size_t msg_len){
+static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , unsigned char* txt, size_t msg_len){
 	if ((file_name = calloc(msg_len+1,sizeof(char))) == NULL){
 		return false;
 	}
-	if ((txt = calloc(msg_len+1,sizeof(char))) == NULL){
+	if ((txt = calloc(msg_len+1,sizeof(unsigned char))) == NULL){
 		free(file_name);
 		return false;
 	}
@@ -396,7 +396,7 @@ static bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff, 
  * 	Number of files in that list would be <= MAX_FILES_FOR_USER
  *  Note: user should free allocated memory (of returned char*)
  **/
-static char* get_list_of_files(char* dir_path){
+static char* get_list_of_files(const char* dir_path){
 	char* ret_val = concat_strings("","",false); //Allocates an empty string
 	char* temp_val = NULL;
 	DIR *dp;
@@ -568,7 +568,7 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
 static int init_sock(struct sockaddr_in* server_addr){
 	
 	int sockfd;
-	if((sockfd = socket(AF_INET, SOCK_STREAM,0) == -1){
+	if ((sockfd = socket(AF_INET, SOCK_STREAM,0)) == -1){
 		printf("Creating socket failed, error is: %s.\n Closing server.\n",strerror(errno));
 		return -1;
 	}
@@ -675,7 +675,7 @@ static bool get_user_details(int sockfd, char** user_name, user_info*** ptr_to_a
 		free(m.msg);
 		return false;
 	}
-	if(!is_valid_user(ptr_to_all_users_info, m.msg, user_name)){ //m.msg might need casting to char*, check it..
+	if(!is_valid_user(ptr_to_all_users_info, (char*)m.msg, user_name)){
 		if (*user_name != NULL){
 			free(*user_name);
 		}
@@ -692,8 +692,8 @@ static bool get_user_details(int sockfd, char** user_name, user_info*** ptr_to_a
  **/
 static bool send_server_login_failed_msg(int sockfd){
 	int len = SIZE_OF_PREFIX;
-	char* msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
-	if (*msg == NULL) {
+	unsigned char* msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
+	if (msg == NULL) {
 		printf("Allocating msg space failed\n");
 		return false;
 	}
@@ -867,7 +867,7 @@ static bool add_file_and_report_client(int sockfd, const char* dir_path, const c
  **/
 static bool send_file_to_client(int sockfd, const char* dir_path, const char* user_name, const char* file_name){
 	
-	unsigned char** txt;
+	unsigned char** txt = NULL;
 	unsigned char* msg_txt;
 	enum GetFileStatus gfs = get_txt_from_file(dir_path, user_name, txt, file_name);
 	
@@ -875,13 +875,13 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 		case(FILE_CONTENT_IN_TXT_SUCCESSFULLY):
 			break;
 		case(FILE_DOESNT_EXIST):
-			msg_txt = "File doesn't exist.";
+			msg_txt = (unsigned char*)"File doesn't exist.";
 			break;
 		default: //FILE_GET_FAILED
-			msg_txt = "Server failed getting file";
+			msg_txt = (unsigned char*)"Server failed getting file";
 	}
 	
-	size_t str_len = (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) ? strlen((char*)(*txt)) : strlen(msg_txt);
+	size_t str_len = (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) ? strlen((char*)(*txt)) : strlen((char*)msg_txt);
 	
 	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+str_len, sizeof(unsigned char));
 	if (total_msg == NULL) {
@@ -929,7 +929,9 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
  * 			 false when communication has ended:  some error happend / user sent invalid msg
  **/
 static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name, bool* end_connection){
-	
+	char* temp_fname = NULL;
+	char* buff = NULL;
+	unsigned char* txt;
 	struct msg m = { NULL, -1, -1 };
 	if (getMSG(sockfd, &m) < 0){
 		return false; //failed getting msg
@@ -949,13 +951,13 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 			
 		case(CLIENT_FILE_DELETE_MSG):
-			char* temp_fname = calloc(m.len+1, sizeof(char));
+			temp_fname = calloc(m.len+1, sizeof(char));
 			if (temp_fname == NULL){
 				printf("Allocation failed when trying to delete a file client has asked\n");
 				free(m.msg);
 				return false;
 			}
-			strncpy(temp_fname, m.msg, m.len);
+			strncpy(temp_fname, (char*)m.msg, m.len);
 			
 			if(!delete_file_and_report_client(sockfd, user_dir_path, temp_fname)){
 				free(temp_fname);
@@ -966,14 +968,13 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 			
 		case(CLIENT_FILE_ADD_MSG):
-			char *txt, *temp_fname;
-			char* buff = calloc(m.len+1, sizeof(char));
+			buff = calloc(m.len+1, sizeof(char));
 			if (buff == NULL){
 				printf("Allocation failed when trying to add file client has asked\n");
 				free(m.msg);
 				return false;
 			}
-			strncpy(buff, m.msg, m.len);
+			strncpy(buff, (char*)m.msg, m.len);
 			
 			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
 			if(!exstract_fname_txt_from_msg(buff, temp_fname, txt, msg_len)){
@@ -983,7 +984,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 				return false;
 			}
 			free(buff);
-			if (!add_file_and_report_client(sockfd, *ptr_dir_path, user_name, txt, temp_fname)){
+			if (!add_file_and_report_client(sockfd, *ptr_dir_path, user_name, &txt, temp_fname)){
 				printf("Adding file asked by client failed.\n");
 				free(txt);
 				free(temp_fname);
@@ -995,13 +996,13 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 		
 		case(CLIENT_FILE_DOWNLOAD_MSG):
-			char* temp_fname = calloc(m.len+1, sizeof(char));
+			temp_fname = calloc(m.len+1, sizeof(char));
 			if (temp_fname == NULL){
 				printf("Allocation failed when trying to send file client has asked\n");
 				free(m.msg);
 				return false;
 			}
-			strncpy(temp_fname, m.msg, m.len);
+			strncpy(temp_fname, (char*)m.msg, m.len);
 			
 			if(!send_file_to_client(sockfd, *ptr_dir_path, user_name, temp_fname)){
 				free(m.msg);
@@ -1030,14 +1031,15 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	int sockfd, connected_sockfd;
 	char *curr_username, *curr_user_dir_path;
 	struct sockaddr_in server_addr, client_addr;
-
+	socklen_t addr_len = sizeof(struct sockaddr_in);
+	
 	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
 		return;
 	}
 	
 	while(true){
 		
-		if((connected_sockfd = accept(sockfd, &client_addr, sizeof(client_addr))) == -1){
+		if((connected_sockfd = accept(sockfd, &client_addr, &addr_len)) == -1){
 			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
 			continue;
 		}

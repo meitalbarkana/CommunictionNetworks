@@ -11,6 +11,9 @@
 #include <stdlib.h> // For malloc()/calloc()
 #include <errno.h>
 #include <dirent.h> //For working with directories
+#include <arpa/inet.h> //For htonl() etc..
+#include <netinet/in.h> //For htonl() etc.
+#include <unistd.h> //For close()
 
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
