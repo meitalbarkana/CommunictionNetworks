@@ -145,6 +145,17 @@ int generateLoginMSG(unsigned char** msg) {
 
 }
 
+bool handleFileMSG(int fd,const char* PathToSave){
+	struct msg m;
+	if(getMSG(fd,&m)<0){
+		return false;
+	}
+	bool res = ((m.type==SERVER_FILE_DOWNLOAD_MSG)&& StringTofile(m.msg,PathToSave))||
+			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len));
+	free(m.msg);
+	return res;
+}
+
 bool listOfFilesRequest(int fd) {
 	unsigned char* msg;
 	int len;
@@ -174,9 +185,7 @@ bool getFileRequest(int fd, const char* fileName, int len,
 	int lenOfMsg;
 	int SizeOfFile;
 	if ((lenOfMsg = generateFileDownloadRequestMSG(&msg, fileName, len))
-			< 0 || sendall(fd, msg, &lenOfMsg) < 0
-			|| (SizeOfFile = getAndReturnMsg(fd, SERVER_FILE_DOWNLOAD_MSG, msg))
-			< 0 || StringTofile(msg,PathToSave)==false) {
+			< 0 || (sendall(fd, msg, &lenOfMsg) < 0 )|| (handleFileMSG(fd,fileName)=false)){
 		free(msg);
 		return false;
 	}
