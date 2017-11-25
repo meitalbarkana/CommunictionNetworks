@@ -339,6 +339,32 @@ bool exstract_username_password_from_msg(const char* buff, char** usern , char**
 } 
 
 /**
+ * 	Gets: char* file_name , char* txt - which will be allocted&nullified to size of msg_length+1.
+ * 	If buff is indeed of the format:
+ * 	"<file_name>\n<txt>"
+ * 	updates (*file_name), (*txt) to contain the relevant values and returns true.
+ * 	Otherwise, returns false.
+ * 
+ * Note: user of this function should free memory allocated in it
+ **/
+static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , char* txt, size_t msg_len){
+	if ((file_name = calloc(msg_len+1,sizeof(char))) == NULL){
+		return false;
+	}
+	if ((txt = calloc(msg_len+1,sizeof(char))) == NULL){
+		free(file_name);
+		return false;
+	}
+	if (sscanf(buff, "%s\n%s", file_name,txt) != 2){
+		free(file_name);
+		free(txt);
+		return false;
+	}
+	return true;
+} 
+
+
+/**
  * 	Returns true if buff indeed == "<username>\n<password>\n" of a valid user
  * 	Updates *user_name to contain the valid username
  **/
@@ -736,11 +762,11 @@ static bool send_listfiles_to_client(int sockfd, const char* user_dir_path){
 }
 
 /**
- *  Gets a valid path to user's directory(ends with '/'), the socket fd,
+ *  Gets a valid path to user's directory(DOESN'T end with '/'), the socket fd,
  *  and the name of the user's file to be deleted.
  * 	Deletes & sends the client report about the deletion 
  * 	
- * 	Returns true if everything succeeded
+ * 	Returns true if reporting client succeeded
  **/
 static bool delete_file_and_report_client(int sockfd, const char* user_dir_path, const char* temp_fname){
 	char* full_user_dir_path = concat_strings(user_dir_path, "/", false);
@@ -783,27 +809,145 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 }
 
 /**
+ *  Gets: 	the socket fd,
+ * 		 	a valid path to ALL users directory (ends with '/'),
+ * 			the name of the user,
+ * 			the content (txt) we want to write to the file,
+ *  		the name of the file to be added. 
+ * 	Adds & sends the client report about the addition 
+ * 	
+ * 	Returns true if succeeded sending report to client.
+ **/
+static bool add_file_and_report_client(int sockfd, const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name){
+	
+	enum AddFileStatus afs = write_txt_to_file(dir_path, user_name, txt, file_name);
+	char* msg_txt;
+	switch(afs){
+		case(FILE_ADDED_SUCCESSFULLY):
+			msg_txt = "File added.";
+			break;
+		
+		case(FILE_ALREADY_EXIST):
+			msg_txt = "File already exists - no file was added.";
+			break;
+		
+		default: //FILE_ADDITION_FAILED
+			msg_txt = "Adding file failed.";
+	}
+	
+	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(msg_txt), sizeof(unsigned char));
+	if (total_msg == NULL) {
+		printf("Generating msg about file addition failed.\n");
+		return false;
+	}
+	
+	intToString(strlen(msg_txt), SIZE_OF_LEN, total_msg);
+	intToString(SERVER_FILE_ADD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+	memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, strlen(msg_txt));
+
+	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
+	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
+		printf("Sending info about file-addition to client failed.\n");
+		free(total_msg);
+		return false;
+	}
+	free(total_msg);
+	return true;
+
+}
+
+/**
+ *  Gets: 	the socket fd,
+ * 		 	a valid path to ALL users directory (ends with '/'),
+ * 			the name of the user,
+ *  		the name of the file to be sent. 
+ * 	Sends client a msg containing the file. 
+ * 	
+ * 	Returns true if succeeded sending to client.
+ **/
+static bool send_file_to_client(int sockfd, const char* dir_path, const char* user_name, const char* file_name){
+	
+	unsigned char** txt;
+	unsigned char* msg_txt;
+	enum GetFileStatus gfs = get_txt_from_file(dir_path, user_name, txt, file_name);
+	
+	switch(gfs){
+		case(FILE_CONTENT_IN_TXT_SUCCESSFULLY):
+			break;
+		case(FILE_DOESNT_EXIST):
+			msg_txt = "File doesn't exist.";
+			break;
+		default: //FILE_GET_FAILED
+			msg_txt = "Server failed getting file";
+	}
+	
+	size_t str_len = (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) ? strlen((char*)(*txt)) : strlen(msg_txt);
+	
+	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+str_len, sizeof(unsigned char));
+	if (total_msg == NULL) {
+		printf("Generating msg about downloading msg failed.\n");
+		if (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) {
+			free(*txt);
+		}
+		return false;
+	}
+	
+	intToString(str_len, SIZE_OF_LEN, total_msg);
+	if(gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) {
+		intToString(SERVER_FILE_DOWNLOAD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+		memcpy(total_msg+SIZE_OF_PREFIX, (*txt), str_len);
+		free(*txt);
+	} else {
+		intToString(SERVER_FILE_DOWNLOAD_FAILED_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+		memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, str_len);
+	}
+	
+	int total_msg_len = SIZE_OF_PREFIX+str_len;
+	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
+		printf("Sending downloaded file to client failed.\n");
+		free(total_msg);
+		return false;
+	}
+	free(total_msg);
+	return true;
+
+}
+
+
+
+/**
  * 	Takes care of getting a message from client (that isn't the login message)
  * 	Gets:	the open socket fd,
  * 			pointer to all users' info,
  * 			path to the directory where all users' directories are,
  * 			path to this specific user's directory(that doesn't end with '/')
  * 			and the current user's name
+ * 
+ * 	Updates: (*end_connection) to true if client asked "quit"
+ * 
  * 	Returns: true if msg was treated successfully,
- * 			 false when communication has ended: when client asked "quit" / some error happend / user sent invalid msg
+ * 			 false when communication has ended:  some error happend / user sent invalid msg
  **/
-static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name){
+static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name, bool* end_connection){
+	
 	struct msg m = { NULL, -1, -1 };
 	if (getMSG(sockfd, &m) < 0){
 		return false; //failed getting msg
 	}
+	if (m.len < 0){
+		free(m.msg);
+		return false;
+	}
+	
 	switch(m.type){
+		
 		case(CLIENT_FILES_LIST_MSG):
 			if (!send_listfiles_to_client(sockfd, user_dir_path)){
 				free(m.msg);
 				return false;
 			}
 			break;
+			
 		case(CLIENT_FILE_DELETE_MSG):
 			char* temp_fname = calloc(m.len+1, sizeof(char));
 			if (temp_fname == NULL){
@@ -813,38 +957,67 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			}
 			strncpy(temp_fname, m.msg, m.len);
 			
-			//TODO:: call to delete&report
-			free(m.msg);
-			free (temp_fn);
-
-		/**
-		 * 
- *  Gets file_name of the file user asked to delete, and a path to the user's directory (that ends with '/')
- * 	Deletes the asked file.
- *  Returns: 1. FILE_DELETED_SUCCESSFULLY - on success
- *			 2. FILE_WASNT_FOUND - if there's no such file
- *			 3. FILE_DELETION_FAILED - if any other error occurred.
- 
-static enum DeleteFileStatus delete_users_file(const char* file_name, const char* user_dir_path)
-		 * 
-		 * */
-		
-		
-		
-		
-		
-			//TODO:: delete asked message
+			if(!delete_file_and_report_client(sockfd, user_dir_path, temp_fname)){
+				free(temp_fname);
+				free(m.msg);
+				return false;
+			}
+			free (temp_fname);
 			break;
+			
 		case(CLIENT_FILE_ADD_MSG):
-			//
+			char *txt, *temp_fname;
+			char* buff = calloc(m.len+1, sizeof(char));
+			if (buff == NULL){
+				printf("Allocation failed when trying to add file client has asked\n");
+				free(m.msg);
+				return false;
+			}
+			strncpy(buff, m.msg, m.len);
+			
+			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
+			if(!exstract_fname_txt_from_msg(buff, temp_fname, txt, msg_len)){
+				printf("Extracting name of file and its content from clients' msg failed\n");
+				free(buff);
+				free(m.msg);
+				return false;
+			}
+			free(buff);
+			if (!add_file_and_report_client(sockfd, *ptr_dir_path, user_name, txt, temp_fname)){
+				printf("Adding file asked by client failed.\n");
+				free(txt);
+				free(temp_fname);
+				free(m.msg);
+				return false;
+			}
+			free(txt);
+			free(temp_fname);
 			break;
+		
 		case(CLIENT_FILE_DOWNLOAD_MSG):
+			char* temp_fname = calloc(m.len+1, sizeof(char));
+			if (temp_fname == NULL){
+				printf("Allocation failed when trying to send file client has asked\n");
+				free(m.msg);
+				return false;
+			}
+			strncpy(temp_fname, m.msg, m.len);
+			
+			if(!send_file_to_client(sockfd, *ptr_dir_path, user_name, temp_fname)){
+				free(m.msg);
+				return false;
+			}
 			break;
+		
 		case(CLIENT_CLOSE_MSG):
+			(*end_connection) = true;
+			break;
+		
 		default: //Client sent invalid msg
-			//free something?
+			free(m.msg);
 			return false;
 	}
+	free(m.msg);
 	return true;
 }
 
@@ -907,8 +1080,8 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 		//Waits for client requests	
 		while(!asked_to_quit){
-			//TODO:: fill 
-			asked_to_quit = !(get_msg_and_answer_it());
+			//For now, if client sends invalid messages we continue to serve him until he sends a valid 'quit'
+			get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit);
 		}
 		
 		if(close(connected_sockfd) == -1){
@@ -926,7 +1099,6 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 }
 
 
-
 int main(int argc, char* argv[]){
 	
 	char* dir_path = NULL;
@@ -938,7 +1110,7 @@ int main(int argc, char* argv[]){
 	}
 	//print_users_array(&ptr_all_users_info); //Test Line
 	
-	//start_service(&ptr_all_users_info, &dir_path);
+	start_service(&ptr_all_users_info, &dir_path);
 		
 	free_users_array(&ptr_all_users_info);
 	free(dir_path);
