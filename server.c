@@ -929,7 +929,7 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
  * 			 false when communication has ended:  some error happend / user sent invalid msg
  **/
 static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name, bool* end_connection){
-	printf("inside get_msg_and_answer_it\n");//TODO:: delete
+	printDebugString("inside get_msg_and_answer_it\n");
 	char* temp_fname = NULL;
 	char* buff = NULL;
 	unsigned char* txt;
@@ -943,7 +943,8 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 		free(m.msg);
 		return false;
 	}
-	printf("Msg type is: %d\n", m.type); //TODO:: delete
+	printDebugString("in get_msg_and_answer_it, msg type is:");
+	printDebugInt((int)m.type);
 	switch(m.type){
 		
 		case(CLIENT_FILES_LIST_MSG):
@@ -1131,7 +1132,8 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 				asked_to_quit = true;
 			}
 			else{
-				printf("Got msg\n");//TODO:: printf
+				printDebugString("Got msg.\n asked to quit value is:");
+				printDebugString((asked_to_quit ? "true" : "false"));
 			}
 		}
 		

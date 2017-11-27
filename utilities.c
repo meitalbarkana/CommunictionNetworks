@@ -20,8 +20,8 @@ bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool on
 	}
 	if(prefix){
 		len+=SIZE_OF_PREFIX;
-		printf("Msg length is: %d\n",stringToInt(arr,SIZE_OF_LEN));
-		printf("Msg type is: %d\n",stringToInt(arr+SIZE_OF_LEN, SIZE_OF_TYPE));
+		printf("Msg length is: %u\n",stringToInt(arr,SIZE_OF_LEN));
+		printf("Msg type is: %hu\n",stringToInt(arr+SIZE_OF_LEN, SIZE_OF_TYPE));
 	}
 	for(int i=prefix*SIZE_OF_PREFIX;i<len;i++){
 		printf("%c",*(arr+i));
@@ -50,7 +50,7 @@ unsigned int stringToInt(const unsigned char* iBuffer, unsigned int iSizeInBytes
 
 //from slides
 int sendall(int s, unsigned char *buf, int *len) {
-	printDebugString("send msg via: ");
+	printDebugString("send msg via socket: ");
 	printDebugInt(s);
 	printDebugString("Msg: ");
 	printUnsignedCharArr(buf,*len,true,true);
