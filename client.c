@@ -1,16 +1,4 @@
-#include <stdio.h>
-#include "utilities.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "client.h"
 
 bool getWelcomeMsg(int fd) {
 	struct msg m = { NULL, -1, -1 };
@@ -123,24 +111,30 @@ int generateFileListMSG(unsigned char** msg) {
 }
 
 int generateLoginMSG(unsigned char** msg) {
-	char username[MAX_USERNAME_LEN + 1];
-	char password[MAX_PASSWORD_LEN + 1];
-	printf("User:");
-	fgets(username, MAX_USERNAME_LEN, stdin);
-	printf("Password:");
-	fgets(password, MAX_PASSWORD_LEN, stdin);
-	size_t sizeOfStr = (strlen(username) + strlen(password) + SIZE_OF_PREFIX);
+	
+	char username[MAX_USERNAME_LEN + 2];
+	char password[MAX_PASSWORD_LEN + 2];
+	
+	int len_username = get_line_from_stdin(username, (MAX_USERNAME_LEN + 2),STR_USERNAME);	
+	int len_password = get_line_from_stdin(password, (MAX_PASSWORD_LEN + 2),STR_PASSWORD);
+	
+	if (len_password < 0) || (len_username < 0) {
+		printf("Format username and paswword is invalid.\n");
+		return -1;
+	}
+
+	size_t sizeOfStr = (len_username + len_password + SIZE_OF_PREFIX);
 	*msg = malloc(sizeOfStr);
 	if (*msg == NULL) {
-		printf("malloc failed");
+		printf("malloc failed\n");
 		return -1;
 	}
 
 	intToString((unsigned int) sizeOfStr - SIZE_OF_PREFIX, SIZE_OF_LEN, *msg);
 	intToString(CLIENT_LOGIN_MSG, SIZE_OF_TYPE, *msg + SIZE_OF_LEN);
-	memcpy(*msg + SIZE_OF_PREFIX, username, strlen(username));
-	memcpy(*msg + SIZE_OF_PREFIX + strlen(username), password,
-			strlen(password));
+	memcpy(*msg + SIZE_OF_PREFIX, username, len_username);
+	memcpy(*msg + SIZE_OF_PREFIX + len_username, password,
+			len_password);
 	return sizeOfStr;
 
 }
@@ -222,14 +216,14 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in dest_addr;
 	struct hostent *he;
 	dest_addr.sin_family = AF_INET;
-	dest_addr.sin_port = htons(80);
+	dest_addr.sin_port = htons(DEFAULT_PORT_NUM);
 	dest_addr.sin_addr.s_addr = htonl(0x8443FC64);
 	if (argc > 1 && inet_pton(AF_INET, argv[1], &(dest_addr.sin_addr)) == 0) {
 		if (isStringNumeric(argv[1])) {
 			dest_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
 		} else {
 			if ((he = gethostbyname(argv[1])) == NULL) {
-				printf("Can't convert hostname to IP");
+				printf("Can't convert hostname to IP\n");
 				exit(1); /* error */
 			} else {
 				memcpy(&dest_addr.sin_addr, he->h_addr_list[0], he->h_length);
@@ -242,7 +236,7 @@ int main(int argc, char *argv[]) {
 //create socket
 	int socketfd = socket(PF_INET, SOCK_STREAM, 0);
 	if (socketfd < 0) {
-		printf("Failed to open socket");
+		printf("Failed to open socket\n");
 		printf("Error: %s\n", strerror(errno));
 		return -1;
 	}
@@ -250,13 +244,13 @@ int main(int argc, char *argv[]) {
 //connect socket to target
 	if (connect(socketfd, (struct sockaddr*) &dest_addr,
 			sizeof(struct sockaddr)) < 0) {
-		printf("Failed to connect to server");
+		printf("Failed to connect to server\n");
 		close(socketfd);
 		return -1;
 	}
 
 	if (!getWelcomeMsg(socketfd)) {
-		printf("Didn't get welcome msg");
+		printf("Didn't get welcome msg\n");
 		close(socketfd);
 		return -1;
 	}
@@ -273,7 +267,7 @@ int main(int argc, char *argv[]) {
 		connected = GetServerLoginMsg(socketfd);
 	}
 	if(!connected){
-		printf("Could not login to server");
+		printf("Could not login to server\n");
 				close(socketfd);
 				return -1;
 	}

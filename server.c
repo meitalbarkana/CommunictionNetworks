@@ -2,7 +2,7 @@
 
 static size_t number_of_valid_users = 0;
 
-static unsigned short port_number = 1337; // Default value
+static unsigned short port_number = (unsigned short) DEFAULT_PORT_NUM; // Default port value
 
 /**
  * 	Returns true if username_to_check already exists in the array of all users.
@@ -381,7 +381,7 @@ static bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff, 
 		return false;
 	}
 	if(!exstract_username_password_from_msg(buff, user_name, &passw_to_check)){
-		printf("Invalid format. please try again, use format:\nUser: <username>\nPassword: <password>\n");//ans = false
+		printf("Invalid format. please try again, use format:\n<username>\nPassword\n");//ans = false
 	} else {
 		ans = is_username_password_correct(ptr_to_all_users_info, *user_name, passw_to_check);
 	}
@@ -1029,6 +1029,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
  * It's only to make tests easier and memory-leak free :)
  **/
 static bool stop_running(const char* dir_path){
+	printf("In stop_running, dir_path is: %s\n", dir_path); //TODO:: delete
 	DIR *dp;
 	struct dirent *ep;
 	int i = 0;
@@ -1070,6 +1071,12 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	}
 	
 	while(true){
+		// Here just for tests: stops server from running if file named "exit.txt" 
+		// was found in all-users-directory:
+		if(stop_running(*ptr_dir_path)){
+			printf("exit.txt was found! ending program\n");
+			return;
+		}
 		
 		if((connected_sockfd = accept(sockfd, &client_addr, &addr_len)) == -1){
 			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
@@ -1128,13 +1135,6 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		free(curr_username);
 		free(curr_user_dir_path);
 		curr_username = curr_user_dir_path = NULL;
-		
-		// Here just for tests: stops server from running if file named "exit.txt" 
-		// was found in all-users-directory:
-		if(stop_running(*ptr_dir_path)){
-			printf("exit.txt was found! ending program\n");
-			return;
-		}
 	}
 
 }

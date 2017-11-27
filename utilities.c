@@ -1,11 +1,13 @@
 #include "utilities.h"
 /**
- * prints bytes of const unsigned char* as ASCII
+ * prints bytes of const unsigned char* as ASCII,
+ * (with a new line at the end)
  **/
 bool printUnsignedCharArr(const unsigned char* arr, int len){
 	for(int i=0;i<len;i++){
 		printf("%c",*(arr+i));
 	}
+	printf("\n");
 	return true;
 }
 /**
@@ -230,3 +232,50 @@ int number_of_files_in_directory(const char* dir_path, int max_val){
 	closedir(dp);
 	return counter;
 }
+
+/**
+ *	@max_length - line's maxium size, including '\n'&'\0' (not including prefix)
+ * 	@prefix -	the input should start with prefix str,
+ * 				line will discard it.
+ * 	Updates line to contain an input line from stdin, including its '\n'&'\0'
+ * 	Note: user should free line's allocated space. 
+ * 	Returns:
+ * 		on success: number of characters written to "line", '\0' not included!
+ * 		on failure: -1 if an error happend / stdin doesn't contain '\n'
+ * 		
+ **/
+int get_line_from_stdin(char* line, int max_length, const char* prefix) {
+	
+	int chars_written_so_far = 0;
+	char c;
+
+	for (size_t i = 0; (i < strlen(prefix)) && ((c = getchar()) != EOF) ; ++i) {
+		if (c != prefix[i]) {
+			return -1;
+		}
+	}
+
+	max_length = max_length - 2; //Room for '\n', '\0'
+
+	while((c = getchar()) != EOF) {
+		if(c == '\n') {
+			line[chars_written_so_far] = '\n';
+			++chars_written_so_far;
+			line[chars_written_so_far] = '\0';
+			break;
+		}
+		if(chars_written_so_far < max_length) {
+			line[chars_written_so_far] = c;
+			++chars_written_so_far;
+		} else { //chars_written_so_far = max_length
+			return -1;
+		}
+	}
+
+	if(c == EOF && chars_written_so_far == 0){
+		return EOF;
+	}
+
+	return chars_written_so_far;
+}
+

@@ -12,7 +12,7 @@ file_client: client.o utilities.o
 server.o: server.c server.h utilities.h
 	$(CC) $(COMP_FLAG) -c $<
 
-client.o: client.c utilities.h
+client.o: client.c client.h utilities.h
 	$(CC) $(COMP_FLAG) -c $<
 
 utilities.o: utilities.c utilities.h

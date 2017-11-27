@@ -44,6 +44,11 @@
 
 #define ALLOWED_TRIALS 3
 
+#define STR_USERNAME "User: "
+#define STR_PASSWORD "Password: "
+
+#define DEFAULT_PORT_NUM 1337
+
 struct msg {
 	unsigned char* msg;
 	int type;
@@ -66,5 +71,7 @@ int sendall(int s, unsigned char *buf, int *len);
 int recvall(int s, unsigned char *buf, int *len);
 int getIntFromMsg(int iFd, int Isize, int* retVal);
 int getMSG(int iFd, struct msg * msg);
+
+int get_line_from_stdin(char* line, int max_length, const char* prefix);
 
 #endif /*UTILITIES_H_*/
