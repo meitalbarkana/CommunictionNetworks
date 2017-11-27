@@ -15,6 +15,7 @@
 #include <netinet/in.h> //For htonl() etc.
 #include <unistd.h> //For close()
 
+#define DEBUG_MODE 1
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
 #define SIZE_OF_PREFIX (SIZE_OF_TYPE+SIZE_OF_LEN)
@@ -55,9 +56,11 @@ struct msg {
 	int len;
 };
 
-bool printUnsignedCharArr(const unsigned char* arr, int len);
+void printDebugString(const char* str);
+void printDebugInt(int n);
+bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool onlyDebug);
 void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iBuffer);
-unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes);
+unsigned int stringToInt(const unsigned char* iBuffer, unsigned int iSizeInBytes);
 bool fileToString(unsigned char** msg, const char* filepath, long* fsize);
 bool StringTofile(unsigned char* msg,const char* filepath);
 

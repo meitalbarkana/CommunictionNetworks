@@ -1,10 +1,29 @@
 #include "utilities.h"
+
+void printDebugString(const char* str){
+	if(DEBUG_MODE){
+		printf("%s\n",str);
+	}
+}
+void printDebugInt(int n){
+	if(DEBUG_MODE){
+		printf("%d\n",n);
+	}
+}
 /**
  * prints bytes of const unsigned char* as ASCII,
  * (with a new line at the end)
  **/
-bool printUnsignedCharArr(const unsigned char* arr, int len){
-	for(int i=0;i<len;i++){
+bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool onlyDebug){
+	if (onlyDebug && !DEBUG_MODE){
+	return true;
+	}
+	if(prefix){
+		len+=SIZE_OF_PREFIX;
+		printf("Msg length is: %d\n",stringToInt(arr,SIZE_OF_LEN));
+		printf("Msg type is: %d\n",stringToInt(arr+SIZE_OF_LEN, SIZE_OF_TYPE));
+	}
+	for(int i=prefix*SIZE_OF_PREFIX;i<len;i++){
 		printf("%c",*(arr+i));
 	}
 	printf("\n");
@@ -21,7 +40,7 @@ void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iB
 /**
  * converts iSizeInBytes first bytes in unsigned char* iBuffer * to unsigned int
  **/
-unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
+unsigned int stringToInt(const unsigned char* iBuffer, unsigned int iSizeInBytes) {
 	int res = 0;
 	for (unsigned int i = 0; i < iSizeInBytes; i++) {
 		res += (int)(iBuffer[iSizeInBytes - i - 1]) << 8 * i;
@@ -31,7 +50,10 @@ unsigned int stringToInt(unsigned char* iBuffer, unsigned int iSizeInBytes) {
 
 //from slides
 int sendall(int s, unsigned char *buf, int *len) {
-
+	printDebugString("send msg via: ");
+	printDebugInt(s);
+	printDebugString("Msg: ");
+	printUnsignedCharArr(buf,*len,true,true);
 	int total = 0; // how many bytes we've sent
 	int bytesleft = *len; // how many we have left to send
 	int n;
@@ -47,7 +69,10 @@ int sendall(int s, unsigned char *buf, int *len) {
 	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
 }
 int recvall(int s, unsigned char *buf, int *len) {
-
+	printDebugString("revice msg via: ");
+	printDebugInt(s);
+	printDebugString("Msg: ");
+	printUnsignedCharArr(buf,*len,true,true);
 	int total = 0; // how many bytes we've recv
 	int bytesleft = *len; // how many we have left to recv 
 	int n;

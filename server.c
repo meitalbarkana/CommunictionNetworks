@@ -929,18 +929,21 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
  * 			 false when communication has ended:  some error happend / user sent invalid msg
  **/
 static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name, bool* end_connection){
+	printf("inside get_msg_and_answer_it\n");//TODO:: delete
 	char* temp_fname = NULL;
 	char* buff = NULL;
 	unsigned char* txt;
 	struct msg m = { NULL, -1, -1 };
 	if (getMSG(sockfd, &m) < 0){
+		printf("Server failed to get response\n");
 		return false; //failed getting msg
 	}
 	if (m.len < 0){
+		printf("Recieved invalid message\n");
 		free(m.msg);
 		return false;
 	}
-	
+	printf("Msg type is: %d\n", m.type); //TODO:: delete
 	switch(m.type){
 		
 		case(CLIENT_FILES_LIST_MSG):
@@ -1121,8 +1124,15 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 		//Waits for client requests	
 		while(!asked_to_quit){
+			printf("inside inner while-loop\n");//TODO:: delete
 			//For now, if client sends invalid messages we continue to serve him until he sends a valid 'quit'
-			get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit);
+			if(!get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit)){
+				printf("Getting or answering client's message failed\n");//TODO:: printf
+				asked_to_quit = true;
+			}
+			else{
+				printf("Got msg\n");//TODO:: printf
+			}
 		}
 		
 		if(close(connected_sockfd) == -1){

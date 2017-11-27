@@ -6,7 +6,7 @@ bool getWelcomeMsg(int fd) {
 		return false;
 	}
 	if (m.type == SERVER_WELCOME_MSG) {
-		printUnsignedCharArr(m.msg, m.len);
+		printUnsignedCharArr(m.msg, m.len, false,false);
 		free(m.msg);
 		return true;
 
@@ -20,7 +20,7 @@ bool getAndPrint(int fd, int msgType) {
 		free(m.msg);
 		return false;
 	}
-	printUnsignedCharArr(m.msg, m.len);
+	printUnsignedCharArr(m.msg, m.len, false, false);
 	free(m.msg);
 	return true;
 }
@@ -118,7 +118,7 @@ int generateLoginMSG(unsigned char** msg) {
 	int len_username = get_line_from_stdin(username, (MAX_USERNAME_LEN + 2),STR_USERNAME);	
 	int len_password = get_line_from_stdin(password, (MAX_PASSWORD_LEN + 2),STR_PASSWORD);
 	
-	if (len_password < 0) || (len_username < 0) {
+	if ((len_password < 0) || (len_username < 0)) {
 		printf("Format username and paswword is invalid.\n");
 		return -1;
 	}
@@ -145,7 +145,7 @@ bool handleFileMSG(int fd,const char* PathToSave){
 		return false;
 	}
 	bool res = ((m.type==SERVER_FILE_DOWNLOAD_MSG)&& StringTofile(m.msg,PathToSave))||
-			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len));
+			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len, false,false));
 	free(m.msg);
 	return res;
 }
@@ -279,17 +279,16 @@ int main(int argc, char *argv[]) {
 		fgets(CommandArr, MAX_COMMAND_LEN, stdin);
 		char * pch;
 		char* command = (pch = strtok(CommandArr, " "));
-		char* arg1 = (pch == NULL ? NULL : (pch = strtok(CommandArr, " ")));
-		char* arg2 = (pch == NULL ? NULL : (pch = strtok(CommandArr, " ")));
-		printf("%s\n",command);
+		char* arg1 = (pch == NULL ? NULL : (pch = strtok(NULL, " ")));
+		char* arg2 = (pch == NULL ? NULL : (pch = strtok(NULL, " ")));
 		if (strcmp(command, "list_of_files\n") == 0) {
 			listOfFilesRequest(socketfd);
-		} else if ((strcmp(command, "delete_file\n") == 0) && arg1 != NULL) {
+		} else if ((strcmp(command, "delete_file") == 0) && arg1 != NULL) {
 			deleteFileRequest(socketfd, arg1, strlen(arg1));
-		} else if (strcmp(command, "add_file\n")
+		} else if (strcmp(command, "add_file")
 				== 0&& arg1 != NULL && arg2 != NULL) {
 			addFileRequest(socketfd, arg1, arg2);
-		} else if (strcmp(command, "get_file\n")
+		} else if (strcmp(command, "get_file")
 				== 0&& arg1 != NULL && arg2 != NULL) {
 			getFileRequest(socketfd, arg1, strlen(arg1), arg2);
 		} else if (strcmp(command, "quit\n") == 0) {
