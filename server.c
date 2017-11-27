@@ -355,11 +355,32 @@ static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , unsi
 		free(file_name);
 		return false;
 	}
-	if (sscanf(buff, "%s\n%s", file_name,txt) != 2){
+	
+	size_t i = 0;
+    size_t counter = 0;
+    while (i < msg_len){
+        if (buff[i] == '\n' && counter == 0){
+            counter++;
+            i++;
+            continue;
+        }
+        if (counter == 0){
+            memcpy(&file_name[i], &buff[i], 1);
+        } else {
+            memcpy(&txt[i-(strlen(file_name))-1], &buff[i], 1); //-1 for '\n'
+        }
+		++i;
+    }
+
+	if (strlen(file_name) == 0){ //strlen(txt) might be 0 (if file is empty)
 		free(file_name);
 		free(txt);
 		return false;
 	}
+	printDebugString("file name extracted from msg is:");
+	printDebugString(file_name);
+	printDebugString("txt extracted from msg is:");
+	printDebugString((char*)txt);	
 	return true;
 } 
 
@@ -769,6 +790,8 @@ static bool send_listfiles_to_client(int sockfd, const char* user_dir_path){
  * 	Returns true if reporting client succeeded
  **/
 static bool delete_file_and_report_client(int sockfd, const char* user_dir_path, const char* temp_fname){
+	printDebugString("in delete_file_and_report_client, trying to delete file:");
+	printDebugString(temp_fname);
 	char* full_user_dir_path = concat_strings(user_dir_path, "/", false);
 	if (full_user_dir_path == NULL) {
 		printf("Allocation failed when trying to delete a file client has asked\n");
@@ -955,7 +978,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 			
 		case(CLIENT_FILE_DELETE_MSG):
-			temp_fname = calloc(m.len+1, sizeof(char));
+			temp_fname = calloc(m.len, sizeof(char)); //Since m.len includes '\n' but doesn't include '\0', they'll be the same length
 			if (temp_fname == NULL){
 				printf("Allocation failed when trying to delete a file client has asked\n");
 				free(m.msg);
@@ -981,6 +1004,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			strncpy(buff, (char*)m.msg, m.len);
 			
 			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
+			printf("msg_len value is: %u\n",msg_len);
 			if(!exstract_fname_txt_from_msg(buff, temp_fname, txt, msg_len)){
 				printf("Extracting name of file and its content from clients' msg failed\n");
 				free(buff);

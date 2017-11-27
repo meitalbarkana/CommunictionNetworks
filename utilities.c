@@ -50,10 +50,10 @@ unsigned int stringToInt(const unsigned char* iBuffer, unsigned int iSizeInBytes
 
 //from slides
 int sendall(int s, unsigned char *buf, int *len) {
-	printDebugString("send msg via socket: ");
-	printDebugInt(s);
-	printDebugString("Msg: ");
-	printUnsignedCharArr(buf,*len,true,true);
+	//printDebugString("send msg via socket: ");
+	//printDebugInt(s);
+	//printDebugString("Msg: ");
+	//printUnsignedCharArr(buf,*len,true,true);
 	int total = 0; // how many bytes we've sent
 	int bytesleft = *len; // how many we have left to send
 	int n;
@@ -69,10 +69,10 @@ int sendall(int s, unsigned char *buf, int *len) {
 	return n == -1 ? -1 : 0; //-1 on failure, 0 on success
 }
 int recvall(int s, unsigned char *buf, int *len) {
-	printDebugString("revice msg via: ");
-	printDebugInt(s);
-	printDebugString("Msg: ");
-	printUnsignedCharArr(buf,*len,true,true);
+	//printDebugString("revice msg via: ");
+	//printDebugInt(s);
+	//printDebugString("Msg: ");
+	//printUnsignedCharArr(buf,*len,true,true);
 	int total = 0; // how many bytes we've recv
 	int bytesleft = *len; // how many we have left to recv 
 	int n;
@@ -105,6 +105,8 @@ int getIntFromMsg(int iFd,int iSize, int* retVal) {
  * get message from socket and parse it for a struct msg
  **/
 int getMSG(int iFd, struct msg * msg) {
+	printDebugString("in getMSG, socket fd is:");
+	printDebugInt(iFd);
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
 	if ((msg->msg = (unsigned char*)malloc(msg->len)) == NULL){
@@ -116,6 +118,8 @@ int getMSG(int iFd, struct msg * msg) {
 		free(msg->msg);
 		return -1;
 	}
+	printDebugString("in getMSG - exiting with success, socket fd is:");
+	printDebugInt(iFd);	
 	return 0;
 }
 

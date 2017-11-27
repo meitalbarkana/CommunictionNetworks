@@ -68,7 +68,7 @@ int generateFileAddRequestMSG(unsigned char** msg, const char* filepath,
 	unsigned char* txt;
 	unsigned char newLine = '\n';
 	long sizeOfFile;
-	long sizeNewPath = strlen(newFile);
+	unsigned int sizeNewPath = strlen(newFile)-1; //-1 because newFile's name includes \n
 	if (fileToString(&txt, filepath, &sizeOfFile) == false) {
 		return -1;
 	}
@@ -82,9 +82,11 @@ int generateFileAddRequestMSG(unsigned char** msg, const char* filepath,
 	intToString(CLIENT_FILE_ADD_MSG, SIZE_OF_TYPE, *msg + SIZE_OF_LEN);
 	memcpy(*msg + SIZE_OF_PREFIX, newFile, sizeNewPath);
 	memcpy(*msg + SIZE_OF_PREFIX + sizeNewPath, &newLine, 1);
+	printDebugString("In generateFileAddRequestMSG. size of the file we're sending is:");
+	printDebugInt(sizeOfFile);
 	memcpy(*msg + SIZE_OF_PREFIX + sizeNewPath + 1, txt, sizeOfFile);
 	free(txt);
-	return SIZE_OF_PREFIX + sizeOfFile;
+	return SIZE_OF_PREFIX+sizeOfFile+1+sizeNewPath; //was SIZE_OF_PREFIX + sizeOfFile
 }
 int generateFileDeleteRequestMSG(unsigned char** msg, const char* filePath,
 		int size) {
@@ -284,7 +286,7 @@ int main(int argc, char *argv[]) {
 		if (strcmp(command, "list_of_files\n") == 0) {
 			listOfFilesRequest(socketfd);
 		} else if ((strcmp(command, "delete_file") == 0) && arg1 != NULL) {
-			deleteFileRequest(socketfd, arg1, strlen(arg1));
+			deleteFileRequest(socketfd, arg1, strlen(arg1)-1); //Since arg1 contains a '\n' at its end
 		} else if (strcmp(command, "add_file")
 				== 0&& arg1 != NULL && arg2 != NULL) {
 			addFileRequest(socketfd, arg1, arg2);
