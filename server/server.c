@@ -1023,6 +1023,38 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 }
 
 /**
+ *	A helper function to stop server program from running:
+ * 	Returns true if it finds a document named "exit.txt" in all-users-directory
+ * (searches only thorugh MAX_FILES_TO_CHECK files)
+ * It's only to make tests easier and memory-leak free :)
+ **/
+static bool stop_running(const char* dir_path){
+	DIR *dp;
+	struct dirent *ep;
+	int i = 0;
+	
+	dp = opendir (dir_path);
+	if (dp == NULL)
+   	{
+		printf("Couldn't open the directory\n");
+		return false;
+    	}
+    
+	while ((ep = (struct dirent*)readdir(dp)) && (i < MAX_FILES_TO_CHECK)){
+		if (ep->d_type == DT_REG){ //Insert only regular files to the list
+			if(strcmp(ep->d_name, "exit.txt") == 0){
+				return true;
+			} 
+			++i;
+		}
+	}
+	closedir(dp);
+	return false;
+}
+
+
+
+/**
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
  **/
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
@@ -1096,6 +1128,13 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		free(curr_username);
 		free(curr_user_dir_path);
 		curr_username = curr_user_dir_path = NULL;
+		
+		// Here just for tests: stops server from running if file named "exit.txt" 
+		// was found in all-users-directory:
+		if(stop_running(*ptr_dir_path)){
+			printf("exit.txt was found! ending program\n");
+			return;
+		}
 	}
 
 }

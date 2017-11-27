@@ -4,7 +4,8 @@
 #include <stdlib.h> // For strtol()
 #include <limits.h> // For constant USHRT_MAX
 
-#define BACKLOG_CONST_VALUE 5 //To define maximum backlog size of the server
+#define BACKLOG_CONST_VALUE 5	//To define maximum backlog size of the server
+#define MAX_FILES_TO_CHECK 200	//Defins max number of files to check when trying to find an "exit" file
 
 enum ServerErrors {
 		USERS_FILE_NO_ERR,
