@@ -347,11 +347,11 @@ bool exstract_username_password_from_msg(const char* buff, char** usern , char**
  * 
  * Note: user of this function should free memory allocated in it
  **/
-static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , unsigned char* txt, size_t msg_len){
-	if ((file_name = calloc(msg_len+1,sizeof(char))) == NULL){
+static bool exstract_fname_txt_from_msg(const char* buff, char** file_name , unsigned char** txt, size_t msg_len){
+	if ((*file_name = calloc(msg_len+1,sizeof(char))) == NULL){
 		return false;
 	}
-	if ((txt = calloc(msg_len+1,sizeof(unsigned char))) == NULL){
+	if ((*txt = calloc(msg_len+1,sizeof(unsigned char))) == NULL){
 		free(file_name);
 		return false;
 	}
@@ -365,22 +365,22 @@ static bool exstract_fname_txt_from_msg(const char* buff, char* file_name , unsi
             continue;
         }
         if (counter == 0){
-            memcpy(&file_name[i], &buff[i], 1);
+            memcpy(&((*file_name)[i]), &buff[i], 1);
         } else {
-            memcpy(&txt[i-(strlen(file_name))-1], &buff[i], 1); //-1 for '\n'
+            memcpy(&((*txt)[i-(strlen(*file_name))-1]), &buff[i], 1); //-1 for '\n'
         }
 		++i;
     }
 
-	if (strlen(file_name) == 0){ //strlen(txt) might be 0 (if file is empty)
-		free(file_name);
-		free(txt);
+	if (strlen(*file_name) == 0){ //strlen(txt) might be 0 (if file is empty)
+		free(*file_name);
+		free(*txt);
 		return false;
 	}
 	printDebugString("file name extracted from msg is:");
-	printDebugString(file_name);
+	printDebugString(*file_name);
 	printDebugString("txt extracted from msg is:");
-	printDebugString((char*)txt);	
+	printDebugString((char*)*txt);	
 	return true;
 } 
 
@@ -481,6 +481,10 @@ static enum DeleteFileStatus delete_users_file(const char* file_name, const char
  **/
 static char* generate_path_to_file(const char* dir_path, const char* user_name, const char* file_name){
 	char *temp1, *temp2, *path_to_file;
+	if((dir_path == NULL) || (user_name == NULL) || (file_name == NULL)){
+		printf("Error: generate_path_to_file got NULL argument!\n");
+		return NULL;
+	}
 	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
 		return NULL;
 	}
@@ -512,6 +516,12 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 	enum AddFileStatus ret =  FILE_ADDITION_FAILED;
 	
 	char* path_to_file;
+	
+	if((dir_path == NULL) || (user_name == NULL) || (file_name == NULL) || (txt==NULL) || (*txt==NULL)){
+		printf("Error: write_txt_to_file got NULL argument!\n");
+		return FILE_ADDITION_FAILED;
+	}
+	
 	if((path_to_file = generate_path_to_file(dir_path, user_name, file_name)) == NULL ){ //Couldn't generate full-path to the file
 		return FILE_ADDITION_FAILED;
 	}
@@ -666,7 +676,6 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 	}
 	
 	sprintf(buff,"Hi %s, you have %d files stored.", user_name, num_files); //Since num_files>=0, it'll be safe to convert buff afterwards to unsigned
-	//printf("Buff is: %s\n",buff);//TODO:: DELETE THIS LINE - FOR TESTING ONLY!!
 	
 	(*wel_msg) = calloc(SIZE_OF_PREFIX+strlen(buff), sizeof(unsigned char));
 	if ((*wel_msg) == NULL) {
@@ -890,9 +899,9 @@ static bool add_file_and_report_client(int sockfd, const char* dir_path, const c
  **/
 static bool send_file_to_client(int sockfd, const char* dir_path, const char* user_name, const char* file_name){
 	
-	unsigned char** txt = NULL;
+	unsigned char* txt = NULL;
 	unsigned char* msg_txt;
-	enum GetFileStatus gfs = get_txt_from_file(dir_path, user_name, txt, file_name);
+	enum GetFileStatus gfs = get_txt_from_file(dir_path, user_name, &txt, file_name);
 	
 	switch(gfs){
 		case(FILE_CONTENT_IN_TXT_SUCCESSFULLY):
@@ -904,13 +913,13 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 			msg_txt = (unsigned char*)"Server failed getting file";
 	}
 	
-	size_t str_len = (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) ? strlen((char*)(*txt)) : strlen((char*)msg_txt);
+	size_t str_len = (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) ? strlen((char*)(txt)) : strlen((char*)msg_txt);
 	
 	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+str_len, sizeof(unsigned char));
 	if (total_msg == NULL) {
 		printf("Generating msg about downloading msg failed.\n");
 		if (gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) {
-			free(*txt);
+			free(txt);
 		}
 		return false;
 	}
@@ -918,8 +927,10 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 	intToString(str_len, SIZE_OF_LEN, total_msg);
 	if(gfs == FILE_CONTENT_IN_TXT_SUCCESSFULLY) {
 		intToString(SERVER_FILE_DOWNLOAD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
-		memcpy(total_msg+SIZE_OF_PREFIX, (*txt), str_len);
-		free(*txt);
+		memcpy(total_msg+SIZE_OF_PREFIX, txt, str_len);
+		printDebugString("Inside send_file_to_client, txt is:");
+		printDebugString((char*)txt);
+		free(txt);
 	} else {
 		intToString(SERVER_FILE_DOWNLOAD_FAILED_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
 		memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, str_len);
@@ -955,7 +966,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 	printDebugString("inside get_msg_and_answer_it\n");
 	char* temp_fname = NULL;
 	char* buff = NULL;
-	unsigned char* txt;
+	unsigned char* txt = NULL;
 	struct msg m = { NULL, -1, -1 };
 	if (getMSG(sockfd, &m) < 0){
 		printf("Server failed to get response\n");
@@ -1005,7 +1016,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			
 			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
 			printf("msg_len value is: %u\n",msg_len);
-			if(!exstract_fname_txt_from_msg(buff, temp_fname, txt, msg_len)){
+			if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 				printf("Extracting name of file and its content from clients' msg failed\n");
 				free(buff);
 				free(m.msg);
@@ -1057,7 +1068,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
  * It's only to make tests easier and memory-leak free :)
  **/
 static bool stop_running(const char* dir_path){
-	printf("In stop_running, dir_path is: %s\n", dir_path); //TODO:: delete
+	printDebugString("In function stop_running");
 	DIR *dp;
 	struct dirent *ep;
 	int i = 0;
@@ -1149,10 +1160,10 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 		//Waits for client requests	
 		while(!asked_to_quit){
-			printf("inside inner while-loop\n");//TODO:: delete
+			printDebugString("inside inner while-loop");
 			//For now, if client sends invalid messages we continue to serve him until he sends a valid 'quit'
 			if(!get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit)){
-				printf("Getting or answering client's message failed\n");//TODO:: printf
+				printf("Getting or answering client's message failed\n");
 				asked_to_quit = true;
 			}
 			else{

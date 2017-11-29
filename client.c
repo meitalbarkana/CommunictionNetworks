@@ -146,6 +146,9 @@ bool handleFileMSG(int fd,const char* PathToSave){
 	if(getMSG(fd,&m)<0){
 		return false;
 	}
+	printDebugString("Got here!!!");
+	printDebugInt(m.type);
+	printDebugString((char*)m.msg);
 	bool res = ((m.type==SERVER_FILE_DOWNLOAD_MSG)&& StringTofile(m.msg,PathToSave))||
 			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len, false,false));
 	free(m.msg);
@@ -176,11 +179,12 @@ bool deleteFileRequest(int fd, const char* fileName, int len) {
 }
 
 bool getFileRequest(int fd, const char* fileName, int len,
-		const char* PathToSave) {
+		 const char* PathToSave) {
 	unsigned char* msg;
+	//PathToSave[strlen(PathToSave)-1]='\0';
 	int lenOfMsg;
 	if ((lenOfMsg = generateFileDownloadRequestMSG(&msg, fileName, len))
-			< 0 || (sendall(fd, msg, &lenOfMsg) < 0 )|| (handleFileMSG(fd,fileName)==false)){
+			< 0 || (sendall(fd, msg, &lenOfMsg) < 0 )|| (handleFileMSG(fd,PathToSave)==false)){
 		free(msg);
 		return false;
 	}
