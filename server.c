@@ -443,7 +443,9 @@ static char* get_list_of_files(const char* dir_path){
 		}
 
 	}
-	closedir(dp);
+	if(closedir(dp)!=0){ //Closing directory failed 
+		printf("Error: closing directory failed. error is: %s. Continue...\n", strerror(errno));
+	}
 	return ret_val;
 }
 
@@ -574,13 +576,11 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
 		}
 		
 		if(!isValidFilePath(path_to_file)){
-			cpy_str_to_txt((unsigned char*)"get_file failed: file doesn't exist or not regular file", txt);
 			free(path_to_file);
 			return FILE_DOESNT_EXIST;
 		}
 		
 		if(!fileToString(txt, path_to_file, &file_size)){
-			cpy_str_to_txt((unsigned char*)"get_file failed", txt);
 			free(path_to_file);
 			return FILE_GET_FAILED;
 		}
@@ -1068,9 +1068,11 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			strncpy(temp_fname, (char*)m.msg, m.len);
 			
 			if(!send_file_to_client(sockfd, *ptr_dir_path, user_name, temp_fname)){
+				free(temp_fname);
 				free(m.msg);
 				return false;
 			}
+			free(temp_fname);
 			break;
 		
 		case(CLIENT_CLOSE_MSG):

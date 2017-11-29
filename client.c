@@ -272,11 +272,17 @@ int main(int argc, char *argv[]) {
 		if ((len = generateLoginMSG(&msg)) == -1 
 				|| sendall(socketfd, msg, &len) == -1) {
 			close(socketfd);
+			free(msg);
 			return -1;
 		}
+		free(msg);
 		connected = GetServerLoginMsg(socketfd);
 		if (!connected){
-			printf("Connection failed - try again. you have %d connection attempts left\n",(ALLOWED_TRIALS-(i+1)) );
+			if (i != ALLOWED_TRIALS-1){
+				printf("Connection failed - try again. you have %d connection attempts left\n",(ALLOWED_TRIALS-(i+1)) );
+			} else {
+				printf("Connection failed - that was your last attempt. Goodbye!\n");
+			}
 		}
 	}
 	if(!connected){
