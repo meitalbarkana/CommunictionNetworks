@@ -234,13 +234,10 @@ int main(int argc, char *argv[]) {
 	if (argc > 1 && inet_pton(AF_INET, argv[1], &(dest_addr.sin_addr)) == 0) {
 		if (isStringNumeric(argv[1])) {
 			dest_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
+		} else if ((he = gethostbyname(argv[1])) != NULL) {
+			memcpy(&dest_addr.sin_addr, he->h_addr_list[0], he->h_length);
 		} else {
-			if ((he = gethostbyname(argv[1])) == NULL) {
-				printf("Can't convert hostname to IP\n");
-				exit(1); /* error */
-			} else {
-				memcpy(&dest_addr.sin_addr, he->h_addr_list[0], he->h_length);
-			}
+			dest_addr.sin_addr.s_addr = htonl((int)strtol(argv[1],NULL, 16));
 		}
 	}
 	if (argc > 2 && isStringNumeric(argv[2])) {
