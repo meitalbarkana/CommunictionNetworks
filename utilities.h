@@ -15,7 +15,7 @@
 #include <netinet/in.h> //For htonl() etc.
 #include <unistd.h> //For close()
 
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define SIZE_OF_LEN 4
 #define SIZE_OF_TYPE 2
 #define SIZE_OF_PREFIX (SIZE_OF_TYPE+SIZE_OF_LEN)

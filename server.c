@@ -1015,7 +1015,8 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			strncpy(buff, (char*)m.msg, m.len);
 			
 			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
-			printf("msg_len value is: %u\n",msg_len);
+			printDebugString("msg_len value is:");
+			printDebugInt(msg_len);
 			if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 				printf("Extracting name of file and its content from clients' msg failed\n");
 				free(buff);

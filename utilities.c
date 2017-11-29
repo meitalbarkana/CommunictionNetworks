@@ -111,7 +111,7 @@ int getMSG(int iFd, struct msg * msg) {
 	printDebugInt(iFd);
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
 	getIntFromMsg(iFd, SIZE_OF_TYPE, &msg->type);
-	if ((msg->msg = (unsigned char*)malloc(msg->len)) == NULL){
+	if ((msg->msg = calloc((msg->len)+1, sizeof(unsigned char*))) == NULL){ //was: if ((msg->msg = (unsigned char*)malloc(msg->len)) == NULL){
 		printf("Error in allocating space for receiving message\n");
 		return -1;
 	}

@@ -149,6 +149,10 @@ bool handleFileMSG(int fd,const char* PathToSave){
 	printDebugString("Got here!!!");
 	printDebugInt(m.type);
 	printDebugString((char*)m.msg);
+	printDebugString("m.len is:");
+	printDebugInt(m.len);
+	printDebugString("Path to save is:");
+	printDebugString(PathToSave);
 	bool res = ((m.type==SERVER_FILE_DOWNLOAD_MSG)&& StringTofile(m.msg,PathToSave))||
 			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len, false,false,true));
 	free(m.msg);
@@ -179,9 +183,11 @@ bool deleteFileRequest(int fd, const char* fileName, int len) {
 }
 
 bool getFileRequest(int fd, const char* fileName, int len,
-		 const char* PathToSave) {
+		 char* PathToSave) {
 	unsigned char* msg;
-	//PathToSave[strlen(PathToSave)-1]='\0';
+	PathToSave[strlen(PathToSave)-1]='\0'; //To delete the '\n' thats written there (according to protocol)
+	printDebugString("PathToSave is:");
+	printDebugString(PathToSave);
 	int lenOfMsg;
 	if ((lenOfMsg = generateFileDownloadRequestMSG(&msg, fileName, len))
 			< 0 || (sendall(fd, msg, &lenOfMsg) < 0 )|| (handleFileMSG(fd,PathToSave)==false)){
