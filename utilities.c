@@ -239,11 +239,10 @@ char* concat_strings(const char* str1, const char* str2, bool add_newline){
  * 	Gets a path to a directory, and a maximum number of files to check
  * 	Returns:
  * 			-1 if an error occured/it's not a directory
- * 			otherwise, the number of regular files in the directory
+ * 			otherwise, the number of files in the directory
  **/
 int number_of_files_in_directory(const char* dir_path, int max_val){
 	int counter = 0;
-	int i = 0;
 	DIR *dp;
 	struct dirent *ep;
 	
@@ -254,11 +253,10 @@ int number_of_files_in_directory(const char* dir_path, int max_val){
 		return -1;
     }
     
-	while ((ep = (struct dirent*)readdir(dp)) && (i < max_val)){
+	while ((ep = (struct dirent*)readdir(dp)) && (counter < max_val)){
 		if (ep->d_type == DT_REG){ //Counts only regular files to the list
 			counter++;
 		}
-		++i;
 	}
 	closedir(dp);
 	return counter;
@@ -282,6 +280,9 @@ int get_line_from_stdin(char* line, int max_length, const char* prefix) {
 
 	for (size_t i = 0; (i < strlen(prefix)) && ((c = getchar()) != EOF) ; ++i) {
 		if (c != prefix[i]) {
+			while(c!='\n'){
+				c = getchar();
+			}
 			return -1;
 		}
 	}
@@ -299,6 +300,7 @@ int get_line_from_stdin(char* line, int max_length, const char* prefix) {
 			line[chars_written_so_far] = c;
 			++chars_written_so_far;
 		} else { //chars_written_so_far = max_length
+		while((c = getchar()) != '\n'){} // to read the entire row in a single call to this function
 			return -1;
 		}
 	}

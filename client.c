@@ -116,15 +116,17 @@ int generateLoginMSG(unsigned char** msg) {
 	
 	char username[MAX_USERNAME_LEN + 2];
 	char password[MAX_PASSWORD_LEN + 2];
+	int len_username = -1;
+	int len_password = -1;
 	
-	int len_username = get_line_from_stdin(username, (MAX_USERNAME_LEN + 2),STR_USERNAME);	
-	int len_password = get_line_from_stdin(password, (MAX_PASSWORD_LEN + 2),STR_PASSWORD);
-	
-	if ((len_password < 0) || (len_username < 0)) {
-		printf("Format username and paswword is invalid.\n");
-		return -1;
-	}
 
+	for(bool first = true; len_password < 0 || len_username < 0 ;first =false){
+		if(!first){
+			printf("Format username and paswword is invalid.\n");
+		}
+		len_username = get_line_from_stdin(username, (MAX_USERNAME_LEN + 2),STR_USERNAME);	
+		len_password = get_line_from_stdin(password, (MAX_PASSWORD_LEN + 2),STR_PASSWORD);			
+	}
 	size_t sizeOfStr = (len_username + len_password + SIZE_OF_PREFIX);
 	*msg = malloc(sizeOfStr);
 	if (*msg == NULL) {
@@ -146,7 +148,6 @@ bool handleFileMSG(int fd,const char* PathToSave){
 	if(getMSG(fd,&m)<0){
 		return false;
 	}
-	printDebugString("Got here!!!");
 	printDebugInt(m.type);
 	printDebugString((char*)m.msg);
 	printDebugString("m.len is:");
@@ -229,7 +230,7 @@ int main(int argc, char *argv[]) {
 	struct hostent *he;
 	dest_addr.sin_family = AF_INET;
 	dest_addr.sin_port = htons(DEFAULT_PORT_NUM);
-	dest_addr.sin_addr.s_addr = htonl(0x8443FC64);
+	dest_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	if (argc > 1 && inet_pton(AF_INET, argv[1], &(dest_addr.sin_addr)) == 0) {
 		if (isStringNumeric(argv[1])) {
 			dest_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
@@ -271,12 +272,15 @@ int main(int argc, char *argv[]) {
 	for(int i=0;i<ALLOWED_TRIALS && !connected;i++){
 		unsigned char* msg;
 		int len;
-		if ((len = generateLoginMSG(&msg)) == -1
+		if ((len = generateLoginMSG(&msg)) == -1 
 				|| sendall(socketfd, msg, &len) == -1) {
 			close(socketfd);
 			return -1;
 		}
 		connected = GetServerLoginMsg(socketfd);
+		if (!connected){
+			printf("Connection failed - try again. you have %d connection attempts left\n",(ALLOWED_TRIALS-(i+1)) );
+		}
 	}
 	if(!connected){
 		printf("Could not login to server\n");

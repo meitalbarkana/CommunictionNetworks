@@ -518,7 +518,7 @@ static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* us
 	char* path_to_file;
 	
 	if((dir_path == NULL) || (user_name == NULL) || (file_name == NULL) || (txt==NULL) || (*txt==NULL)){
-		printf("Error: write_txt_to_file got NULL argument!\n");
+		printf("Error: write_txt_to_file got NULL argument!\n");//Never supposed to get here
 		return FILE_ADDITION_FAILED;
 	}
 	
@@ -841,6 +841,36 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 }
 
 /**
+ * 	Helper function: sends client a message that adding file succeeded/failed.
+ * 	@sockfd
+ * 	@msg_txt - Null-terminated string describing the failure,
+ * 				(what we want the client to know)
+ * 
+ * 	Returns true if succeeded
+ **/
+static bool send_client_add_msg_result(int sockfd, const char* msg_txt){
+	
+	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(msg_txt), sizeof(unsigned char));
+	if (total_msg == NULL) {
+		printf("Generating msg about file addition failed.\n");
+		return false;
+	}
+	
+	intToString(strlen(msg_txt), SIZE_OF_LEN, total_msg);
+	intToString(SERVER_FILE_ADD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+	memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, strlen(msg_txt));
+
+	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
+	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
+		printf("Sending info about file-addition to client failed.\n");
+		free(total_msg);
+		return false;
+	}
+	free(total_msg);
+	return true;
+}
+
+/**
  *  Gets: 	the socket fd,
  * 		 	a valid path to ALL users directory (ends with '/'),
  * 			the name of the user,
@@ -867,24 +897,7 @@ static bool add_file_and_report_client(int sockfd, const char* dir_path, const c
 			msg_txt = "Adding file failed.";
 	}
 	
-	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(msg_txt), sizeof(unsigned char));
-	if (total_msg == NULL) {
-		printf("Generating msg about file addition failed.\n");
-		return false;
-	}
-	
-	intToString(strlen(msg_txt), SIZE_OF_LEN, total_msg);
-	intToString(SERVER_FILE_ADD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
-	memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, strlen(msg_txt));
-
-	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
-	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
-		printf("Sending info about file-addition to client failed.\n");
-		free(total_msg);
-		return false;
-	}
-	free(total_msg);
-	return true;
+	return (send_client_add_msg_result(sockfd, msg_txt));
 
 }
 
@@ -1006,9 +1019,17 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 			
 		case(CLIENT_FILE_ADD_MSG):
+					
+			if(number_of_files_in_directory(user_dir_path, MAX_FILES_FOR_USER) >= MAX_FILES_FOR_USER){
+				printf("User tried adding more files than allowed\n");
+				free(m.msg);
+				return(send_client_add_msg_result(sockfd, "Adding file failed: maximum amount of files, delete one to make room."));
+			}
+		
 			buff = calloc(m.len+1, sizeof(char));
 			if (buff == NULL){
 				printf("Allocation failed when trying to add file client has asked\n");
+				send_client_add_msg_result(sockfd, "Adding file failed: server error");
 				free(m.msg);
 				return false;
 			}
@@ -1019,6 +1040,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			printDebugInt(msg_len);
 			if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 				printf("Extracting name of file and its content from clients' msg failed\n");
+				send_client_add_msg_result(sockfd, "Adding file failed: extracting filename and its content failed.");
 				free(buff);
 				free(m.msg);
 				return false;
@@ -1036,6 +1058,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 		
 		case(CLIENT_FILE_DOWNLOAD_MSG):
+		
 			temp_fname = calloc(m.len+1, sizeof(char));
 			if (temp_fname == NULL){
 				printf("Allocation failed when trying to send file client has asked\n");
@@ -1164,7 +1187,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 			printDebugString("inside inner while-loop");
 			//For now, if client sends invalid messages we continue to serve him until he sends a valid 'quit'
 			if(!get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit)){
-				printf("Getting or answering client's message failed\n");
+				printf("Getting or answering client's message failed, continues to next client\n");
 				asked_to_quit = true;
 			}
 			else{
