@@ -14,7 +14,7 @@ void printDebugInt(int n){
  * prints bytes of const unsigned char* as ASCII,
  * (with a new line at the end)
  **/
-bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool onlyDebug){
+bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool onlyDebug, bool printNewLine){
 	if (onlyDebug && !DEBUG_MODE){
 	return true;
 	}
@@ -26,7 +26,9 @@ bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool on
 	for(int i=prefix*SIZE_OF_PREFIX;i<len;i++){
 		printf("%c",*(arr+i));
 	}
-	printf("\n");
+	if(printNewLine){
+		printf("\n");
+	}
 	return true;
 }
 /**

@@ -6,7 +6,7 @@ bool getWelcomeMsg(int fd) {
 		return false;
 	}
 	if (m.type == SERVER_WELCOME_MSG) {
-		printUnsignedCharArr(m.msg, m.len, false,false);
+		printUnsignedCharArr(m.msg, m.len, false,false,true);
 		free(m.msg);
 		return true;
 
@@ -14,13 +14,13 @@ bool getWelcomeMsg(int fd) {
 	free(m.msg);
 	return false;
 }
-bool getAndPrint(int fd, int msgType) {
+bool getAndPrint(int fd, int msgType, bool printNewLine) {
 	struct msg m;
 	if (getMSG(fd, &m) < 0 || m.type != msgType) {
 		free(m.msg);
 		return false;
 	}
-	printUnsignedCharArr(m.msg, m.len, false, false);
+	printUnsignedCharArr(m.msg, m.len, false, false,printNewLine);
 	free(m.msg);
 	return true;
 }
@@ -36,7 +36,7 @@ int getAndReturnMsg(int fd, int msgType, unsigned char* msg) {
 }
 
 bool GetServerLoginMsg(int fd) {
-	return getAndPrint(fd, SERVER_LOGIN_PASS_MSG);
+	return getAndPrint(fd, SERVER_LOGIN_PASS_MSG,true);
 }
 
 int generateCloseRequestMSG(unsigned char** msg) {
@@ -150,7 +150,7 @@ bool handleFileMSG(int fd,const char* PathToSave){
 	printDebugInt(m.type);
 	printDebugString((char*)m.msg);
 	bool res = ((m.type==SERVER_FILE_DOWNLOAD_MSG)&& StringTofile(m.msg,PathToSave))||
-			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len, false,false));
+			 ((m.type==SERVER_FILE_DOWNLOAD_FAILED_MSG)&& printUnsignedCharArr(m.msg, m.len, false,false,true));
 	free(m.msg);
 	return res;
 }
@@ -163,7 +163,7 @@ bool listOfFilesRequest(int fd) {
 		return false;
 	}
 	free(msg);
-	return getAndPrint(fd, SERVER_FILES_LIST_MSG);
+	return getAndPrint(fd, SERVER_FILES_LIST_MSG,false);
 }
 
 bool deleteFileRequest(int fd, const char* fileName, int len) {
@@ -175,7 +175,7 @@ bool deleteFileRequest(int fd, const char* fileName, int len) {
 		return false;
 	}
 	free(msg);
-	return getAndPrint(fd, SERVER_FILE_REMOVE_MSG);
+	return getAndPrint(fd, SERVER_FILE_REMOVE_MSG,true);
 }
 
 bool getFileRequest(int fd, const char* fileName, int len,
@@ -201,7 +201,7 @@ bool addFileRequest(int fd, const char* filePath, const char* newFileName) {
 		return false;
 	}
 	free(msg);
-	return getAndPrint(fd, SERVER_FILE_ADD_MSG);
+	return getAndPrint(fd, SERVER_FILE_ADD_MSG,true);
 }
 
 bool quitRequest(int fd) {
