@@ -5,7 +5,8 @@
 #include <limits.h> // For constant USHRT_MAX
 
 #define BACKLOG_CONST_VALUE 5	//To define maximum backlog size of the server
-#define MAX_FILES_TO_CHECK 200	//Defins max number of files to check when trying to find an "exit" file
+#define MAX_FILES_TO_CHECK 200	//Defines max number of files to check when trying to find an "exit" file
+#define NO_SOCKFD (-1)
 
 enum ServerErrors {
 		USERS_FILE_NO_ERR,
@@ -15,9 +16,26 @@ enum ServerErrors {
 		USERS_FILE_NOT_OPENED
 };
 
+enum ClientStatus{
+	WELCOME_MSG_SENT,
+	USER_IS_CONNECTED,
+	USER_IS_OFFLINE
+};
+
 typedef struct{
+
 	char* username;
 	char* password;
+
+	//Represents client current status:
+	enum ClientStatus client_status;
+
+	//Holds number of trials to authenticate (of current login):
+	unsigned short num_authentication_attempts;
+
+	int client_sockfd;
+	struct sockaddr_in client_addr;
+	
 } user_info;
 
 enum DeleteFileStatus{

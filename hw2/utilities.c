@@ -223,6 +223,9 @@ bool StringTofile(unsigned char* msg, const char* filepath) {
  * 	Note: user of this function has to free allocation!
  **/
 char* concat_strings(const char* str1, const char* str2, bool add_newline){
+	if ((str1 == NULL) || (str2 == NULL)){
+		return NULL;
+	}
 	char* concated_str = (add_newline) ? calloc((strlen(str1)+strlen(str2)+2),sizeof(char)) : calloc((strlen(str1)+strlen(str2)+1),sizeof(char)); 
 	if((concated_str) == NULL){
 		return NULL;

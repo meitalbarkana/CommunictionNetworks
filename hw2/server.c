@@ -41,6 +41,37 @@ void free_users_array(user_info*** ptr_to_all_users_info){
 }*/
 
 /**
+ * 	Helper function, that on success returns a string representing full path to file_name:
+ * 	(in format: dir_path/user_name/file_name)
+ * 	Note: dir_path already contains '/' at its end.
+ *		  User of this function should free allocated memory of the string returned.
+ * 	Returns NULL if failed.
+ **/
+static char* generate_path_to_file(const char* dir_path, const char* user_name, const char* file_name){
+	char *temp1, *temp2, *path_to_file;
+	if((dir_path == NULL) || (user_name == NULL) || (file_name == NULL)){
+		printf("Error: generate_path_to_file got NULL argument!\n");
+		return NULL;
+	}
+	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
+		return NULL;
+	}
+	if((temp2 = concat_strings(temp1, "/", false)) == NULL){
+		free (temp1);
+		return NULL;
+	}
+	free (temp1);
+	if((path_to_file = concat_strings(temp2, file_name, false)) == NULL) {
+		free (temp1);
+		free (temp2);
+		return NULL;
+	}
+	free(temp2);
+	return path_to_file;
+}
+
+
+/**
  * 	Allocates pointers-to-user_info-array, and 2 temporary strings
  * 	Returns true if allocation succeded, false otherwise
  **/
@@ -67,8 +98,10 @@ static bool alloc_userinfo_array_and_temps(user_info*** ptr_to_all_users_info,ch
 }
 
 /**
- *  Allocates enough place for user_info struct and it's fields,
+ *  Allocates enough space for user_info struct and it's fields,
  * 	According to parameters provided.
+ *	Initiates fields to default values.
+ * 
  * 	Returns true on success, false otherwise.
  **/
 static bool alloc_userinfo(user_info*** ptr_to_all_users_info, size_t len_temp_username, size_t len_temp_password){
@@ -91,6 +124,12 @@ static bool alloc_userinfo(user_info*** ptr_to_all_users_info, size_t len_temp_u
 		free_users_array(ptr_to_all_users_info);
 		return false;
 	}
+	
+	(*ptr_to_all_users_info)[number_of_valid_users]->client_status = USER_IS_OFFLINE;
+	(*ptr_to_all_users_info)[number_of_valid_users]->num_authentication_attempts = 0;
+	(*ptr_to_all_users_info)[number_of_valid_users]->client_sockfd = NO_SOCKFD;
+	memset( &((*ptr_to_all_users_info)[number_of_valid_users]->client_addr),
+			0, sizeof(struct sockaddr_in) );
 	
 	return true;
 }
@@ -203,10 +242,13 @@ static void delete_user_from_list(const char* username_to_delete, user_info*** p
 
 /**
  *	Creates directory for each user in ptr_to_all_users_info,
- * 	at path "path". 
+ * 	at path "path".
+ *	Creates a file named STR_OFFLINE_FILE in each user's directory.
+ * 
  *  Returns true if at least 1 directory was created.
  **/
 static bool create_directories(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
+	FILE* fp = NULL;
 	bool res = false;
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){	
@@ -217,8 +259,28 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 			i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 			continue;
 		}
-		if(mkdir(dir_name, (S_IRWXU | S_IRWXG | S_IRWXO)) ==0 ) { //If succeed creating the directory
+		if(mkdir(dir_name, (S_IRWXU | S_IRWXG | S_IRWXO)) == 0 ) { //If succeed creating the directory
+			
+			//Create the file STR_OFFLINE_FILE in that directory:
+			char* offline_file_name = generate_path_to_file( (*ptr_dir_path),
+					(((*ptr_to_all_users_info)[i])->username), STR_OFFLINE_FILE );
+			
+			if ( (offline_file_name == NULL) ||
+				((fp = fopen(offline_file_name, "w")) == NULL) )
+			{ //Allocation or creating file failed:
+				if (offline_file_name){
+					free(offline_file_name);
+				}
+				printf("Creating file for messages received offline for user: %s failed, deleting this user from user-list.\n", 
+						((*ptr_to_all_users_info)[i])->username);
+				delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+				i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
+				continue;
+			}
+			fclose(fp);
+			free(offline_file_name);
 			res = true;
+			
 		} else { //Creating directory failed
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
@@ -475,37 +537,6 @@ static enum DeleteFileStatus delete_users_file(const char* file_name, const char
 } 
 
 /**
- * 	Helper function, that on success returns a string representing full path to file_name:
- * 	(in format: dir_path/user_name/file_name)
- * 	Note: dir_path already contains '/' at its end.
- *		  User of this function should free allocated memory of the string returned.
- * 	Returns NULL if failed.
- **/
-static char* generate_path_to_file(const char* dir_path, const char* user_name, const char* file_name){
-	char *temp1, *temp2, *path_to_file;
-	if((dir_path == NULL) || (user_name == NULL) || (file_name == NULL)){
-		printf("Error: generate_path_to_file got NULL argument!\n");
-		return NULL;
-	}
-	if((temp1 = concat_strings(dir_path, user_name, false)) == NULL){ //Allocation failed
-		return NULL;
-	}
-	if((temp2 = concat_strings(temp1, "/", false)) == NULL){
-		free (temp1);
-		return NULL;
-	}
-	free (temp1);
-	if((path_to_file = concat_strings(temp2, file_name, false)) == NULL) {
-		free (temp1);
-		free (temp2);
-		return NULL;
-	}
-	free(temp2);
-	return path_to_file;
-}
-
-
-/**
  * 	Gets a valid user_name, the directory-path that contains all users directories,
  *  adds to the user directory the file "file_name" which contains (*txt).
  * 	Returns:
@@ -595,7 +626,6 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
  * 		On success: the socketfd,
  * 		On failure: -1.
  **/
- 
 static int init_sock(struct sockaddr_in* server_addr){
 	
 	int sockfd;
@@ -604,7 +634,7 @@ static int init_sock(struct sockaddr_in* server_addr){
 		return -1;
 	}
 
-	memset(server_addr, '0', sizeof(struct sockaddr_in));
+	memset(server_addr, 0, sizeof(struct sockaddr_in));
 	
 	(*server_addr).sin_family = AF_INET;
 	(*server_addr).sin_port = htons(port_number);
@@ -1131,7 +1161,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	struct sockaddr_in server_addr, client_addr;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 	
-	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating the socket
+	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating server's socket
 		return;
 	}
 	
