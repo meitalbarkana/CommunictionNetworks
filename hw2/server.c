@@ -1,6 +1,7 @@
 #include "server.h"
 
 static size_t number_of_valid_users = 0;
+static active_fd active_fds[MAX_USERS];
 
 static unsigned short port_number = (unsigned short) DEFAULT_PORT_NUM; // Default port value
 
@@ -14,6 +15,27 @@ static bool check_if_username_already_exists(const char* username_to_check, user
 		}
 	}
 	return false;
+}
+
+/**
+ *	Gets a pointer to active_fd,
+ *	Initializes all its fields to default (empty) values
+ **/
+static void init_active_fd(active_fd* afd){
+	(*afd).client_sockfd = NO_SOCKFD;
+	memset( &((*afd).client_addr), 0, sizeof(struct sockaddr_in) );
+	(*afd).client_info = NULL;
+	(*afd).client_status = NO_CLIENT_YET;
+	(*afd).num_authentication_attempts = 0;
+}
+
+/**
+ *	Initiates the global array active_fds to default values.
+ **/
+static void init_array_active_fds(){
+	for (size_t i = 0; i < MAX_USERS; ++i) {
+		init_active_fd(&active_fds[i]);
+	}
 }
 
 /**
@@ -124,12 +146,6 @@ static bool alloc_userinfo(user_info*** ptr_to_all_users_info, size_t len_temp_u
 		free_users_array(ptr_to_all_users_info);
 		return false;
 	}
-	
-	(*ptr_to_all_users_info)[number_of_valid_users]->client_status = USER_IS_OFFLINE;
-	(*ptr_to_all_users_info)[number_of_valid_users]->num_authentication_attempts = 0;
-	(*ptr_to_all_users_info)[number_of_valid_users]->client_sockfd = NO_SOCKFD;
-	memset( &((*ptr_to_all_users_info)[number_of_valid_users]->client_addr),
-			0, sizeof(struct sockaddr_in) );
 	
 	return true;
 }
@@ -633,7 +649,7 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
  * 		On success: the socketfd,
  * 		On failure: -1.
  **/
-static int init_sock(struct sockaddr_in* server_addr){
+static int init_server_sock(struct sockaddr_in* server_addr){
 	
 	int sockfd;
 	if ((sockfd = socket(AF_INET, SOCK_STREAM,0)) == -1){
@@ -683,7 +699,6 @@ static int generate_welcome_msg(unsigned char** wel_msg){
 /**
  * 	Returns true if succeeded sending a welcome message to sockfd, false otherwise
  **/
- 
 static bool send_welcome_msg(int sockfd){
 	unsigned char* wel_msg;
 	int lenOfMsg;
@@ -999,7 +1014,6 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 }
 
 
-
 /**
  * 	Takes care of getting a message from client (that isn't the login message)
  * 	Gets:	the open socket fd,
@@ -1165,20 +1179,16 @@ static bool stop_running(const char* dir_path){
  * 		2. Adds all (active) client-server sockets to *read_fds
  * 
  **/
-static int init_fd_set(fd_set* read_fds, int server_listen_sockfd,
-		user_info*** ptr_to_all_users_info)
-{
-	int temp_client_sockfd = NO_SOCKFD;
+static int init_fd_set(fd_set* read_fds, int server_listen_sockfd){
 	int highest_sockfd = server_listen_sockfd;
 	FD_ZERO(read_fds);
 	FD_SET(server_listen_sockfd, read_fds);
 	
-	for (size_t i = 0; i < number_of_valid_users; ++i){
-		temp_client_sockfd = ((*ptr_to_all_users_info)[i])->client_sockfd;
-		if (temp_client_sockfd != NO_SOCKFD){
-			FD_SET(temp_client_sockfd, read_fds);
-			if (temp_client_sockfd > highest_sockfd){
-				highest_sockfd = temp_client_sockfd;
+	for (size_t i = 0; i < MAX_USERS; ++i){
+		if (active_fds[i].client_sockfd != NO_SOCKFD){
+			FD_SET(active_fds[i].client_sockfd, read_fds);
+			if (active_fds[i].client_sockfd > highest_sockfd){
+				highest_sockfd = active_fds[i].client_sockfd;
 			}
 		}
 	}
@@ -1192,14 +1202,20 @@ static int init_fd_set(fd_set* read_fds, int server_listen_sockfd,
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	
 	bool asked_to_quit, is_authenticated;
-	int sockfd, connected_sockfd;
+	int server_listen_sockfd, highest_sockfd;
 	char *curr_username, *curr_user_dir_path;
 	struct sockaddr_in server_addr, client_addr;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
+	fd_set read_fds;
+	int action = -1;
 	
-	if((sockfd = init_sock(&server_addr)) == -1){ //Failed creating server's socket
+	init_array_active_fds();
+
+	if((server_listen_sockfd = init_server_sock(&server_addr)) == -1){ //Failed creating server's socket
 		return;
 	}
+	
+	//TODO:: check if fcntl() is needed!
 	
 	while(true){
 		// Here just for tests: stops server from running if file named "exit.txt" 
@@ -1209,7 +1225,37 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 			return;
 		}
 		
-		if((connected_sockfd = accept(sockfd, &client_addr, &addr_len)) == -1){
+		highest_sockfd = init_fd_set(&read_fds, server_listen_sockfd);
+		
+		action = select(highest_sockfd+1, &read_fds, NULL, NULL, NULL);
+		
+		switch (action) {
+			case (-1):
+				printf("Error: select() failed. Error info is: %s.\n",strerror(errno));
+				return;
+			case (0): //Never supposed to get here
+				printf("Function select() timedout.\n");
+				return;
+			default:
+				if (FD_ISSET(server_listen_sockfd, &read_fds)){
+					//A new client is attemting to connect:
+					///TODO::	
+				}
+				
+				for (size_t i = 0; i < MAX_USERS; ++i) {
+					if ((active_fds[i].client_sockfd != NO_SOCKFD) &&
+						(FD_ISSET(active_fds[i].client_sockfd, &read_fds))) 
+					{
+						//Take care of a socket already active
+						///TODO:::
+						
+					}
+				}
+		}
+		
+////////////////////////////////////////////////////////////////////////
+	/**	
+		if((connected_sockfd = accept(server_listen_sockfd, &client_addr, &addr_len)) == -1){
 			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
 			continue;
 		}
@@ -1275,7 +1321,9 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		free(curr_user_dir_path);
 		curr_username = curr_user_dir_path = NULL;
 	}
-
+	**/
+////////////////////////////////////////////////////////////////////////
+	}
 }
 
 

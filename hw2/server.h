@@ -16,26 +16,26 @@ enum ServerErrors {
 };
 
 enum ClientStatus{
+	NO_CLIENT_YET,
 	WELCOME_MSG_SENT,
-	USER_IS_CONNECTED,
-	USER_IS_OFFLINE
+	CLIENT_IS_CONNECTED,
+	CLIENT_IS_OFFLINE
 };
 
 typedef struct{
-
 	char* username;
 	char* password;
+} user_info;
 
-	//Represents client current status:
-	enum ClientStatus client_status;
-
-	//Holds number of trials to authenticate (of current login):
-	unsigned short num_authentication_attempts;
-
+typedef struct {
 	int client_sockfd;
 	struct sockaddr_in client_addr;
-	
-} user_info;
+	user_info* client_info;
+	//Represents client current status:
+	enum ClientStatus client_status;
+	//Holds number of trials to authenticate (of current sockfd):
+	unsigned short num_authentication_attempts;
+} active_fd;
 
 enum DeleteFileStatus{
 	FILE_DELETED_SUCCESSFULLY,
