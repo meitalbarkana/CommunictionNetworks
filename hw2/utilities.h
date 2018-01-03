@@ -33,6 +33,8 @@
 #define CLIENT_FILE_ADD_MSG 3
 #define CLIENT_FILE_DOWNLOAD_MSG 4
 #define CLIENT_CLOSE_MSG 5
+#define CLIENT_FRIENDLY_MSG 6
+#define CLIENT_GET_USERS_MSG 7
 
 #define SERVER_WELCOME_MSG 0
 #define SERVER_LOGIN_PASS_MSG 1
@@ -42,6 +44,10 @@
 #define SERVER_FILE_ADD_MSG 5
 #define SERVER_FILE_DOWNLOAD_MSG 6
 #define SERVER_FILE_DOWNLOAD_FAILED_MSG 7
+#define SERVER_ALL_CONNECTED_USERS_MSG 8
+#define SERVER_STATUS_FRIENDLY_MSG 9
+#define SERVER_ACTUAL_FRIENDLY_MSG 10
+
 
 #define ALLOWED_TRIALS 3
 
@@ -49,6 +55,8 @@
 #define STR_PASSWORD "Password: "
 
 #define DEFAULT_PORT_NUM 1337
+
+#define STR_OFFLINE_FILE "Messages_received_offline.txt" 
 
 struct msg {
 	unsigned char* msg;
