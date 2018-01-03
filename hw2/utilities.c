@@ -107,6 +107,16 @@ int getIntFromMsg(int iFd,int iSize, int* retVal) {
  * get message from socket and parse it for a struct msg
  **/
 int getMSG(int iFd, struct msg * msg) {
+	return getMSGOrPrintFriendly(iFd,msg,false);
+}
+void printFriendly(int iFd){
+	struct msg m = { NULL, -1, -1 };
+	getMSGOrPrintFriendly(iFd,&m,true);
+	free(m.msg);
+	return ;
+
+}
+	int getMSGOrPrintFriendly(int iFd, struct msg * msg,bool justFriendly) {
 	printDebugString("in getMSG, socket fd is:");
 	printDebugInt(iFd);
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);
@@ -121,8 +131,16 @@ int getMSG(int iFd, struct msg * msg) {
 		return -1;
 	}
 	printDebugString("in getMSG - exiting with success, socket fd is:");
-	printDebugInt(iFd);	
+	printDebugInt(iFd);
+
+	if(msg->type==SERVER_ACTUAL_FRIENDLY_MSG){
+		printUnsignedCharArr(msg->msg,msg->len,false,false,true);
+		free(msg->msg);
+		return (justFriendly || getMSG(iFd, msg));
+	}
+
 	return 0;
+
 }
 
 /**

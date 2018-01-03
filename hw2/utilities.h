@@ -14,6 +14,7 @@
 #include <arpa/inet.h> //For htonl() etc..
 #include <netinet/in.h> //For htonl() etc.
 #include <unistd.h> //For close()
+#include <math.h> //for pow(a,b)
 
 #define DEBUG_MODE 0
 #define SIZE_OF_LEN 4
@@ -46,7 +47,7 @@
 #define SERVER_FILE_DOWNLOAD_FAILED_MSG 7
 #define SERVER_ALL_CONNECTED_USERS_MSG 8
 #define SERVER_STATUS_FRIENDLY_MSG 9
-#define SERVER_ACTUAL_FRIENDLY_MSG 10
+#define SERVER_ACTUAL_FRIENDLY_MSG (pow(256,SIZE_OF_TYPE)-1)
 
 
 #define ALLOWED_TRIALS 3
@@ -82,6 +83,8 @@ int sendall(int s, unsigned char *buf, int *len);
 int recvall(int s, unsigned char *buf, int *len);
 int getIntFromMsg(int iFd, int Isize, int* retVal);
 int getMSG(int iFd, struct msg * msg);
+int getMSGOrPrintFriendly(int iFd, struct msg * msg,bool justFriendly);
+void printFriendly(int iFd);
 
 int get_line_from_stdin(char* line, int max_length, const char* prefix);
 
