@@ -249,10 +249,12 @@ static void delete_user_from_list(const char* username_to_delete, user_info*** p
  **/
 static bool create_directories(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	FILE* fp = NULL;
+	char* dir_name = NULL;
+	char* offline_file_name = NULL;
 	bool res = false;
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){	
-		char* dir_name = concat_strings((*ptr_dir_path), (((*ptr_to_all_users_info)[i])->username), false);
+		dir_name = concat_strings((*ptr_dir_path), (((*ptr_to_all_users_info)[i])->username), false);
 		if (dir_name == NULL) { //Allocation failed:
 			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
 			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
@@ -262,8 +264,10 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 		if(mkdir(dir_name, (S_IRWXU | S_IRWXG | S_IRWXO)) == 0 ) { //If succeed creating the directory
 			
 			//Create the file STR_OFFLINE_FILE in that directory:
-			char* offline_file_name = generate_path_to_file( (*ptr_dir_path),
-					(((*ptr_to_all_users_info)[i])->username), STR_OFFLINE_FILE );
+			offline_file_name = generate_path_to_file(
+					(*ptr_dir_path),
+					(((*ptr_to_all_users_info)[i])->username),
+					STR_OFFLINE_FILE );
 			
 			if ( (offline_file_name == NULL) ||
 				((fp = fopen(offline_file_name, "w")) == NULL) )
@@ -273,7 +277,8 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 				}
 				printf("Creating file for messages received offline for user: %s failed, deleting this user from user-list.\n", 
 						((*ptr_to_all_users_info)[i])->username);
-				delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+				delete_user_from_list( (((*ptr_to_all_users_info)[i])->username),
+						ptr_to_all_users_info );
 				i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 				continue;
 			}
@@ -282,8 +287,10 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 			res = true;
 			
 		} else { //Creating directory failed
-			printf("Creating directory for user: %s failed, deleting this user from user-list\n", ((*ptr_to_all_users_info)[i])->username);
-			delete_user_from_list((((*ptr_to_all_users_info)[i])->username) ,ptr_to_all_users_info);
+			printf( "Creating directory for user: %s failed, deleting this user from user-list\n",
+					((*ptr_to_all_users_info)[i])->username );
+			delete_user_from_list( (((*ptr_to_all_users_info)[i])->username),
+					ptr_to_all_users_info );
 			i--; //Because delete_user_from_list() removes the current user, so next user is now placed in current position i
 		}
 		free(dir_name);
@@ -645,7 +652,8 @@ static int init_sock(struct sockaddr_in* server_addr){
 		return -1;
 	}
 	
-	if (listen(sockfd, BACKLOG_CONST_VALUE) != 0){
+	//Defines maximum backlog size of the server as MAX_USERS:
+	if (listen(sockfd, MAX_USERS) != 0){
 		printf("Listen() failed, error is: %s.\n Closing server.\n",strerror(errno));
 		return -1;
 	}
@@ -1005,8 +1013,11 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
  * 	Returns: true if msg was treated successfully,
  * 			 false when communication has ended:  some error happend / user sent invalid msg
  **/
-static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info, char*const *ptr_dir_path,const char* user_dir_path, const char* user_name, bool* end_connection){
-	printDebugString("inside get_msg_and_answer_it\n");
+static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info,
+		char*const *ptr_dir_path,const char* user_dir_path,
+		const char* user_name, bool* end_connection)
+{
+	printDebugString("Inside get_msg_and_answer_it\n");
 	char* temp_fname = NULL;
 	char* buff = NULL;
 	unsigned char* txt = NULL;
@@ -1148,7 +1159,32 @@ static bool stop_running(const char* dir_path){
 	return false;
 }
 
-
+/**
+ *	Initiates *read_fds, AND returns the highest fd in it:
+ * 		1. Adds listening socket (server_listen_sockfd) to *read_fds
+ * 		2. Adds all (active) client-server sockets to *read_fds
+ * 
+ **/
+static int init_fd_set(fd_set* read_fds, int server_listen_sockfd,
+		user_info*** ptr_to_all_users_info)
+{
+	int temp_client_sockfd = NO_SOCKFD;
+	int highest_sockfd = server_listen_sockfd;
+	FD_ZERO(read_fds);
+	FD_SET(server_listen_sockfd, read_fds);
+	
+	for (size_t i = 0; i < number_of_valid_users; ++i){
+		temp_client_sockfd = ((*ptr_to_all_users_info)[i])->client_sockfd;
+		if (temp_client_sockfd != NO_SOCKFD){
+			FD_SET(temp_client_sockfd, read_fds);
+			if (temp_client_sockfd > highest_sockfd){
+				highest_sockfd = temp_client_sockfd;
+			}
+		}
+	}
+	
+	return highest_sockfd;
+}
 
 /**
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
