@@ -1205,16 +1205,18 @@ static int init_fd_set(fd_set* read_fds, int server_listen_sockfd){
 }
 
 /**
- *	Handles new connection attempt: 
- *		1. If number of active_fd's already is MAX_USERS, will close this connection
+ *	Handles new connection attempt.
+ *  
+ *	NOTE:	if number of active_fd's already is MAX_USERS,
+ * 			will close this new connection
  * 
- *	Credit: https://gist.github.com/Alexey-N-Chernyshov/4634731#file-server-c-L117 
  **/
 static void handle_new_connection_attempt(int server_listen_sockfd){
 	struct sockaddr_in temp_client_addr;
 	memset(&temp_client_addr, 0, sizeof(temp_client_addr));
 	socklen_t client_len = sizeof(temp_client_addr);
-	int new_client_sock = accept(server_listen_sockfd, (struct sockaddr *)&temp_client_addr, &client_len);
+	int new_client_sock = accept(server_listen_sockfd,
+					(struct sockaddr*)&temp_client_addr, &client_len);
 	if (new_client_sock < 0) {
 		printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
 		return;
@@ -1246,6 +1248,36 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 	close(new_client_sock);
 }
 
+/**
+ *	Gets a pointer to an active_fd that is ready to be received from
+ *	Receives the msg from it and handles it accordingly.
+ **/
+static void handle_msg_from_active_fd(active_fd* fd_ptr){
+	
+	if (fd_ptr == NULL) {
+		printf("Error: function handle_msg_from_active_fd() got NULL argument.\n");
+		return;
+	}
+	
+	switch (fd_ptr->client_status){
+		case (NO_CLIENT_YET):
+		case (CLIENT_IS_OFFLINE):
+			//Never suppposed to get here:
+			printf("Error: in function handle_msg_from_active_fd(), client status is invalid.\n");
+			close(fd_ptr->client_sockfd);
+			init_active_fd(fd_ptr);
+			return;
+		case (WELCOME_MSG_SENT): 
+		//Means this supposed to be
+			//TODO::
+			break;
+		default: //CLIENT_IS_CONNECTED
+			//TODO::
+	}
+
+}
+
+
 
 /**
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
@@ -1266,7 +1298,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		return;
 	}
 	
-	//TODO:: check if fcntl() is needed!
+	//TODO:: check if fcntl() is needed?
 	
 	while(true){
 		// Here just for tests: stops server from running if file named "exit.txt" 
@@ -1297,9 +1329,8 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 					if ((active_fds[i].client_sockfd != NO_SOCKFD) &&
 						(FD_ISSET(active_fds[i].client_sockfd, &read_fds))) 
 					{
-						//Take care of a socket already active
-						///TODO:::
-						
+						//Take care of an already active socket, that sent something:
+						handle_msg_from_active_fd(&active_fds[i]);
 					}
 				}
 		}
