@@ -652,12 +652,20 @@ static enum GetFileStatus get_txt_from_file(const char* dir_path, const char* us
 static int init_server_sock(struct sockaddr_in* server_addr){
 	
 	int sockfd;
+	int opt = 1;
 	if ((sockfd = socket(AF_INET, SOCK_STREAM,0)) == -1){
 		printf("Creating socket failed, error is: %s.\n Closing server.\n",strerror(errno));
 		return -1;
 	}
 
 	memset(server_addr, 0, sizeof(struct sockaddr_in));
+	
+	//set socket to allow multiple connections (this is just a good habit, it will work without this)
+	if( setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 )
+	{
+		printf("setsockopt() failed, error is: %s.\n Closing server.\n",strerror(errno));
+		return -1;
+	}
 	
 	(*server_addr).sin_family = AF_INET;
 	(*server_addr).sin_port = htons(port_number);
@@ -1197,6 +1205,49 @@ static int init_fd_set(fd_set* read_fds, int server_listen_sockfd){
 }
 
 /**
+ *	Handles new connection attempt: 
+ *		1. If number of active_fd's already is MAX_USERS, will close this connection
+ * 
+ *	Credit: https://gist.github.com/Alexey-N-Chernyshov/4634731#file-server-c-L117 
+ **/
+static void handle_new_connection_attempt(int server_listen_sockfd){
+	struct sockaddr_in temp_client_addr;
+	memset(&temp_client_addr, 0, sizeof(temp_client_addr));
+	socklen_t client_len = sizeof(temp_client_addr);
+	int new_client_sock = accept(server_listen_sockfd, (struct sockaddr *)&temp_client_addr, &client_len);
+	if (new_client_sock < 0) {
+		printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
+		return;
+	}
+
+	for (size_t i = 0; i < MAX_USERS; ++i) {
+		if (active_fds[i].client_sockfd == NO_SOCKFD) {
+			
+			//Send welcome message to client:
+			if(!send_welcome_msg(new_client_sock)){
+				//If failed sending hello message, continue to next client
+				//No change in active_fds[i],errors already printed
+				// inside send_welcome_msg()
+				close(new_client_sock);
+				return;
+			}
+			
+			//Welcome message sent OK:
+			active_fds[i].client_sockfd = new_client_sock;
+			active_fds[i].client_addr = temp_client_addr;
+			active_fds[i].client_info = NULL; //We don't know yet which client tries to connect using this socket
+			active_fds[i].client_status = WELCOME_MSG_SENT;
+			active_fds[i].num_authentication_attempts = 0;
+			return;
+		}
+	}
+
+	printf("Too much connections, new connection attemp denied.\n");
+	close(new_client_sock);
+}
+
+
+/**
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
  **/
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
@@ -1239,7 +1290,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 			default:
 				if (FD_ISSET(server_listen_sockfd, &read_fds)){
 					//A new client is attemting to connect:
-					///TODO::	
+					handle_new_connection_attempt(server_listen_sockfd);	
 				}
 				
 				for (size_t i = 0; i < MAX_USERS; ++i) {
@@ -1255,17 +1306,8 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		
 ////////////////////////////////////////////////////////////////////////
 	/**	
-		if((connected_sockfd = accept(server_listen_sockfd, &client_addr, &addr_len)) == -1){
-			printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
-			continue;
-		}
 		
-		asked_to_quit = false;
-		
-		//Send hello message to client:
-		if(!send_welcome_msg(connected_sockfd)){ //If failed sending hello message, continues to next client
-			continue;
-		}
+
 		
 		//Validate user: gives the user ALLOWED_TRIALS number of trials to authenticate
 		for (size_t i = 0; i < ALLOWED_TRIALS; ++i){
