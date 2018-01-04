@@ -393,12 +393,18 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 }
 
 /**
- * 	Returns true if usern_to_check & passw_to_check fits a valid user
+ *	Checks if usern_to_check & passw_to_check fits a valid user,
+ *	if it does: 
+ *		Updates (*fd_ptr).client_info to point at relevant user_info
+ *		Returns true. 
  **/
-bool is_username_password_correct (user_info*** ptr_to_all_users_info,const char* usern_to_check, const char* passw_to_check){
+bool is_username_password_correct (user_info*** ptr_to_all_users_info,
+		const char* usern_to_check, const char* passw_to_check, active_fd* fd_ptr){
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		if ((strncmp(((*ptr_to_all_users_info)[i])->username, usern_to_check, MAX_USERNAME_LEN+1) == 0) &&
-			(strncmp(((*ptr_to_all_users_info)[i])->password, passw_to_check, MAX_PASSWORD_LEN+1) == 0)){
+			(strncmp(((*ptr_to_all_users_info)[i])->password, passw_to_check, MAX_PASSWORD_LEN+1) == 0))
+		{
+			(*fd_ptr).client_info = ((*ptr_to_all_users_info)[i]);
 			return true;
 		}
 	}
@@ -472,26 +478,30 @@ static bool exstract_fname_txt_from_msg(const char* buff, char** file_name , uns
 
 /**
  * 	Returns true if buff indeed == "<username>\n<password>\n" of a valid user
- * 	Updates *user_name to contain the valid username
+ * 	Updates (*fd_ptr).client_info to point at valid user (in ptr_to_all_users_info)
  **/
-static bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff, char** user_name){
+static bool is_valid_user(user_info*** ptr_to_all_users_info, const char* buff, active_fd* fd_ptr){
 	bool ans = false;
-	char *passw_to_check;
-	if (((*user_name) = calloc(MAX_USERNAME_LEN*2, sizeof(char))) == NULL){ //*2 to make sure no overflow would happen in "exstract_username_password_from_msg()"
+	char *passw_to_check, *user_name;
+	if ((user_name = calloc(MAX_USERNAME_LEN*2, sizeof(char))) == NULL){ //*2 to make sure no overflow would happen in "exstract_username_password_from_msg()"
 		printf("Allocation failed\n");
 		return false;
 	}
 	if ((passw_to_check = calloc(MAX_PASSWORD_LEN*2, sizeof(char))) == NULL){
 		printf("Allocation failed\n");
-		free (*user_name);
+		free (user_name);
 		return false;
 	}
-	if(!exstract_username_password_from_msg(buff, user_name, &passw_to_check)){
-		printf("Invalid format. please try again, use format:\n<username>\nPassword\n");//ans = false
+	if(!exstract_username_password_from_msg(buff, &user_name, &passw_to_check)){
+		printf("User sent invalid username and password format.\n");//ans = false
 	} else {
-		ans = is_username_password_correct(ptr_to_all_users_info, *user_name, passw_to_check);
+		ans = is_username_password_correct(ptr_to_all_users_info, user_name, passw_to_check, fd_ptr);
 	}
 	free(passw_to_check);
+	free(user_name);
+	if (ans == false) {
+		(*fd_ptr).num_authentication_attempts =(*fd_ptr).num_authentication_attempts+1;
+	}	
 	return ans;
 }
 
@@ -753,28 +763,42 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 }
 
 /**
- * 	Gets an open socket fd, waits for client to authenticate.
- * 	If client sent valid info, updates user_name to contain clients' username.
+ * 	Gets a pointer to an active_fd that is ready to be received from,
+ *	checks if represent a valid user:
+ * 
+ * 	If client sent valid info, updates *fd_ptr to point at relevant user
+ *	(from ptr_to_all_users_info)
+ *
+ *	If client sent invalid details, updates fd_ptr->num_authentication_attempts
+ * 
+ *	NOTE: if an error accured, won't change fd_ptr->num_authentication_attempts.
+ * 
  * 	Returns true if suceeded, false otherwise.
  **/
-static bool get_user_details(int sockfd, char** user_name, user_info*** ptr_to_all_users_info){
+ //int sockfd, char** user_name
+static bool get_user_details(active_fd* fd_ptr, user_info*** ptr_to_all_users_info){
+	
+	if (fd_ptr == NULL || ptr_to_all_users_info == NULL){
+		printf("Error: get_user_details() got NULL argument\n");
+		return false;
+	}
+	
 	struct msg m = { NULL, -1, -1 };
-	if(getMSG(sockfd, &m) < 0){
+	
+	if(getMSG(fd_ptr->client_sockfd, &m) < 0){
 		return false; //Failed getting msg
 	}
+	
 	if(m.type != CLIENT_LOGIN_MSG){ //msg is from wrong format
 		free(m.msg);
+		(*fd_ptr).num_authentication_attempts = (*fd_ptr).num_authentication_attempts+1;
 		return false;
 	}
-	if(!is_valid_user(ptr_to_all_users_info, (char*)m.msg, user_name)){
-		if (*user_name != NULL){
-			free(*user_name);
-		}
-		free(m.msg);
-		return false;
-	}
+
+	bool ans = is_valid_user(ptr_to_all_users_info, (char*)m.msg, fd_ptr);
+
 	free(m.msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -1249,10 +1273,66 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 }
 
 /**
+ *	Gets a pointer to an active_fd that is ready to be received from,
+ *	And supposed to send a CLIENT_LOGIN_MSG.
+ *	
+ *	If authentication succeeded, updates:
+ *		1. (*fd_ptr).client_info: to point at the relevant user
+ * 		2. (*fd_ptr).client_status: to CLIENT_IS_CONNECTED
+ * 		3. (*fd_ptr).num_authentication_attempts: to zero (since it doesn't matter anymore)
+ *	and sends client a SERVER _LOGIN_PASS_MSG
+ * 
+ *	Otherwise, updates fd_ptr->num_authentication_attempts (adds 1,
+ *	happens inside helper function get_user_details()),
+ *	and sends client a SERVER_LOGIN_FAIL_MSG.
+ * 
+ * 	NOTE:	if num_authentication_attempts reaches ALLOWED_TRIALS,
+ * 			CLOSES (fd_ptr->client_sockfd) SOCKET AND INITIATES IT!
+ **/
+ static void get_authentication_msg(active_fd* fd_ptr,
+		user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
+{
+	char* curr_user_dir_path = NULL;
+	bool is_authenticated = get_user_details(fd_ptr, ptr_to_all_users_info);
+	
+	if(!is_authenticated){
+		send_server_login_failed_msg(fd_ptr->client_sockfd);
+		if ((*fd_ptr).num_authentication_attempts == ALLOWED_TRIALS) {
+			close((*fd_ptr).client_sockfd);
+			init_active_fd(fd_ptr);
+		}
+	} 
+	else {
+	//user validated, (*fd_ptr).client_info already been updated in get_user_details()
+		(*fd_ptr).client_status = CLIENT_IS_CONNECTED;
+		(*fd_ptr).num_authentication_attempts = 0;
+		
+		if((curr_user_dir_path = concat_strings(*ptr_dir_path,
+				(*fd_ptr).client_info->username, false)) == NULL)
+		{
+			//Not supposed to get here:
+			printf("Failed creating path to user directory, couldn't generate SERVER_LOGIN_PASS_MSG\n");
+			return;
+		}
+		
+		//Sends SERVER_LOGIN_PASS_MSG:
+		if (!send_status_msg((*fd_ptr).client_sockfd, curr_user_dir_path,
+				(*fd_ptr).client_info->username))
+		{
+			//Not supposed to get here:
+			printf("Failed sending SERVER_LOGIN_PASS_MSG. Continuing to next client.\n");
+		}
+		free(curr_user_dir_path);
+	}
+ }
+
+/**
  *	Gets a pointer to an active_fd that is ready to be received from
  *	Receives the msg from it and handles it accordingly.
  **/
-static void handle_msg_from_active_fd(active_fd* fd_ptr){
+static void handle_msg_from_active_fd(active_fd* fd_ptr,
+		user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
+{
 	
 	if (fd_ptr == NULL) {
 		printf("Error: function handle_msg_from_active_fd() got NULL argument.\n");
@@ -1268,11 +1348,12 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr){
 			init_active_fd(fd_ptr);
 			return;
 		case (WELCOME_MSG_SENT): 
-		//Means this supposed to be
-			//TODO::
-			break;
+		//Means this msg supposed to be the authentication msg from client:
+			get_authentication_msg(fd_ptr, ptr_to_all_users_info, ptr_dir_path);
+			return;
 		default: //CLIENT_IS_CONNECTED
 			//TODO::
+			break;
 	}
 
 }
@@ -1286,7 +1367,6 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	
 	bool asked_to_quit, is_authenticated;
 	int server_listen_sockfd, highest_sockfd;
-	char *curr_username, *curr_user_dir_path;
 	struct sockaddr_in server_addr, client_addr;
 	socklen_t addr_len = sizeof(struct sockaddr_in);
 	fd_set read_fds;
@@ -1330,45 +1410,14 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 						(FD_ISSET(active_fds[i].client_sockfd, &read_fds))) 
 					{
 						//Take care of an already active socket, that sent something:
-						handle_msg_from_active_fd(&active_fds[i]);
+						handle_msg_from_active_fd(&active_fds[i], ptr_to_all_users_info, ptr_dir_path);
 					}
 				}
 		}
 		
 ////////////////////////////////////////////////////////////////////////
 	/**	
-		
 
-		
-		//Validate user: gives the user ALLOWED_TRIALS number of trials to authenticate
-		for (size_t i = 0; i < ALLOWED_TRIALS; ++i){
-			is_authenticated = get_user_details(connected_sockfd, &curr_username, ptr_to_all_users_info);
-			if(!is_authenticated){
-				send_server_login_failed_msg(connected_sockfd);
-				continue;
-			} else {
-				break; //user validated, gets out of "for" loop
-			}
-		}
-
-		if(!is_authenticated){
-			continue; //To next client
-		}
-		
-		//If gets here, user authenticated:
-		if((curr_user_dir_path = concat_strings(*ptr_dir_path, curr_username, false)) == NULL){
-			printf("Failed creating path to user directory\n");//Not supposed to get here.
-			free(curr_username);
-			continue;//To next client
-		}
-		//Sends status message:
-		if (!send_status_msg(connected_sockfd, curr_user_dir_path, curr_username)){
-			printf("Failed sending user the status message. Continuing to next client.\n");//Not supposed to get here.
-			free(curr_user_dir_path);
-			free(curr_username);
-			continue;
-		}
-		
 		//Waits for client requests	
 		while(!asked_to_quit){
 			printDebugString("inside inner while-loop");
