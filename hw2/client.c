@@ -113,7 +113,7 @@ int generateFileListMSG(unsigned char** msg) {
 	return SIZE_OF_PREFIX;
 }
 
-int generateFileListMSG(unsigned char** msg) {
+int generateUsersListMSG(unsigned char** msg) {
 	*msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
 	if (*msg == NULL) {
 		printf("malloc failed\n");
@@ -199,7 +199,7 @@ bool deleteFileRequest(int fd, const char* fileName, int len) {
 }
 
 bool getFileRequest(int fd, const char* fileName, int len, char* PathToSave,
-		bool printOnScreen) {
+bool printOnScreen) {
 	unsigned char* msg;
 	if (!printOnScreen) {
 		PathToSave[strlen(PathToSave) - 1] = '\0'; //To delete the '\n' thats written there (according to protocol)
@@ -240,7 +240,7 @@ bool quitRequest(int fd) {
 	free(msg);
 	return true;
 }
-bool getUsersRequest(int iFd){
+bool getUsersRequest(int iFd) {
 	unsigned char* msg;
 	int len;
 	if ((len = generateUsersListMSG(&msg)) < 0 || sendall(iFd, msg, &len) < 0) {
@@ -250,21 +250,41 @@ bool getUsersRequest(int iFd){
 	free(msg);
 	return getAndPrint(iFd, SERVER_ALL_CONNECTED_USERS_MSG, false);
 }
+
+int generateFriendlyMSG(unsigned char** msg, char* user, const char* msgToSend) {
+	user[strlen(user) - 1] = '\n'; //replace ":" from username to "\n"
+	size_t sizeOfStr = (strlen(user) + strlen(msgToSend) + SIZE_OF_PREFIX);
+	*msg = malloc(sizeOfStr);
+	if (*msg == NULL) {
+		printf("malloc failed\n");
+		return -1;
+	}
+
+	intToString((unsigned int) sizeOfStr - SIZE_OF_PREFIX, SIZE_OF_LEN, *msg);
+	intToString(CLIENT_FRIENDLY_MSG, SIZE_OF_TYPE, *msg + SIZE_OF_LEN);
+	memcpy(*msg + SIZE_OF_PREFIX, user, strlen(user));
+	memcpy(*msg + SIZE_OF_PREFIX + strlen(user), msgToSend, strlen(msgToSend));
+	return sizeOfStr;
 }
-
-bool sendFriendlyMSGRequest(int iFd, char* user, const char* msg){
-user[strlen(user) - 1] = '\0'; //remove : from username
-
+bool sendFriendlyMSGRequest(int iFd, char* user, const char* msgToSend) {
+	unsigned char* msg;
+	int len;
+	if ((len = generateFriendlyMSG(&msg,user,msgToSend)) < 0 || sendall(iFd, msg, &len) < 0) {
+		free(msg);
+		return false;
+	}
+	free(msg);
+	return getAndPrint(iFd, SERVER_STATUS_FRIENDLY_MSG, true);
 }
 
 bool getSavedMSGS(int iFd) {
 	return getFileRequest(iFd, STR_OFFLINE_FILE, strlen(STR_OFFLINE_FILE), NULL,
-			true);
+	true);
 }
 
 int main(int argc, char *argv[]) {
 
-// define target address
+	// define target address
 	struct sockaddr_in dest_addr;
 	struct hostent *he;
 	dest_addr.sin_family = AF_INET;
@@ -282,7 +302,7 @@ int main(int argc, char *argv[]) {
 	if (argc > 2 && isStringNumeric(argv[2])) {
 		dest_addr.sin_port = htons(atoi(argv[2]));
 	}
-//create socket
+	//create socket
 	int socketfd = socket(PF_INET, SOCK_STREAM, 0);
 	if (socketfd < 0) {
 		printf("Failed to open socket\n");
@@ -290,7 +310,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-//connect socket to target
+	//connect socket to target
 	if (connect(socketfd, (struct sockaddr*) &dest_addr,
 			sizeof(struct sockaddr)) < 0) {
 		printf("Failed to connect to server\n");
@@ -300,9 +320,9 @@ int main(int argc, char *argv[]) {
 
 	//init read_fds
 	fd_set read_fds;
-	FD_ZERO(read_fds);
-	FD_SET(STDIN_FILENO, read_fds);
-	FD_SET(socketfd, read_fds);
+	FD_ZERO(&read_fds);
+	FD_SET(STDIN_FILENO, &read_fds);
+	FD_SET(socketfd, &read_fds);
 
 	if (!getWelcomeMsg(socketfd)) {
 		printf("Didn't get welcome msg\n");
