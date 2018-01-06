@@ -1048,28 +1048,33 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 
 /**
  * 	Takes care of getting a message from client (that isn't the login message)
- * 	Gets:	the open socket fd,
+ * 	Gets:	A pointer to an active_fd - a connection which is ready to be received from,
  * 			pointer to all users' info,
  * 			path to the directory where all users' directories are,
  * 			path to this specific user's directory(that doesn't end with '/')
- * 			and the current user's name
- * 
- * 	Updates: (*end_connection) to true if client asked "quit"
  * 
  * 	Returns: true if msg was treated successfully,
- * 			 false when communication has ended:  some error happend / user sent invalid msg
+ * 			 false when communication has ended: some error happend / user sent invalid msg
  **/
-static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info,
-		char*const *ptr_dir_path,const char* user_dir_path,
-		const char* user_name, bool* end_connection)
+static bool get_msg_and_answer_it(active_fd* afd, , user_info*** ptr_to_all_users_info,
+		char*const *ptr_dir_path,const char* user_dir_path)
 {
-	printDebugString("Inside get_msg_and_answer_it\n");
+	
+	if (afd == NULL || ptr_to_all_users_info == NULL || 
+			ptr_dir_path == NULL || user_dir_path== NULL)
+	{
+		printf ("Function get_msg_and_answer_it() got NULL argument.\n");
+		return false;
+	}
+
+	//TODO:: edit all!
+	
 	char* temp_fname = NULL;
 	char* buff = NULL;
 	unsigned char* txt = NULL;
 	struct msg m = { NULL, -1, -1 };
-	if (getMSG(sockfd, &m) < 0){
-		printf("Server failed to get response\n");
+	if (getMSG((*afd).client_sockfd, &m) < 0){
+		printf("Server failed to get client's message.\n");
 		return false; //failed getting msg
 	}
 	if (m.len < 0){
@@ -1077,12 +1082,13 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 		free(m.msg);
 		return false;
 	}
+	
 	printDebugString("in get_msg_and_answer_it, msg type is:");
 	printDebugInt((int)m.type);
 	switch(m.type){
 		
 		case(CLIENT_FILES_LIST_MSG):
-			if (!send_listfiles_to_client(sockfd, user_dir_path)){
+			if (!send_listfiles_to_client((*afd).client_sockfd, user_dir_path)){
 				free(m.msg);
 				return false;
 			}
@@ -1097,7 +1103,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			}
 			strncpy(temp_fname, (char*)m.msg, m.len);
 			
-			if(!delete_file_and_report_client(sockfd, user_dir_path, temp_fname)){
+			if(!delete_file_and_report_client((*afd).client_sockfd, user_dir_path, temp_fname)){
 				free(temp_fname);
 				free(m.msg);
 				return false;
@@ -1110,13 +1116,14 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			if(number_of_files_in_directory(user_dir_path, MAX_FILES_FOR_USER) >= MAX_FILES_FOR_USER){
 				printf("User tried adding more files than allowed\n");
 				free(m.msg);
-				return(send_client_add_msg_result(sockfd, "Adding file failed: maximum amount of files, delete one to make room."));
+				return(send_client_add_msg_result((*afd).client_sockfd,
+						"Adding file failed: maximum amount of files, delete one to make room."));
 			}
 		
 			buff = calloc(m.len+1, sizeof(char));
 			if (buff == NULL){
-				printf("Allocation failed when trying to add file client has asked\n");
-				send_client_add_msg_result(sockfd, "Adding file failed: server error");
+				printf("Allocation failed when trying to add a file client has asked\n");
+				send_client_add_msg_result((*afd).client_sockfd, "Adding file failed: server error");
 				free(m.msg);
 				return false;
 			}
@@ -1127,13 +1134,14 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			printDebugInt(msg_len);
 			if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 				printf("Extracting name of file and its content from clients' msg failed\n");
-				send_client_add_msg_result(sockfd, "Adding file failed: extracting filename and its content failed.");
+				send_client_add_msg_result((*afd).client_sockfd,
+						"Adding file failed: extracting filename and its content failed.");
 				free(buff);
 				free(m.msg);
 				return false;
 			}
 			free(buff);
-			if (!add_file_and_report_client(sockfd, *ptr_dir_path, user_name, &txt, temp_fname)){
+			if (!add_file_and_report_client(sockfd, *ptr_dir_path, (*afd).client_info->username, &txt, temp_fname)){
 				printf("Adding file asked by client failed.\n");
 				free(txt);
 				free(temp_fname);
@@ -1154,7 +1162,7 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			}
 			strncpy(temp_fname, (char*)m.msg, m.len);
 			
-			if(!send_file_to_client(sockfd, *ptr_dir_path, user_name, temp_fname)){
+			if(!send_file_to_client(sockfd, *ptr_dir_path, (*afd).client_info->username, temp_fname)){
 				free(temp_fname);
 				free(m.msg);
 				return false;
@@ -1163,10 +1171,14 @@ static bool get_msg_and_answer_it(int sockfd, user_info*** ptr_to_all_users_info
 			break;
 		
 		case(CLIENT_CLOSE_MSG):
-			(*end_connection) = true;
+			if(close((*afd).client_sockfd) == -1){
+				printf("Failed closing client's socket. error is: %s.\n",strerror(errno));
+			}
+			init_active_fd(afd);
 			break;
 		
 		default: //Client sent invalid msg
+			printf("Client sent invalid message.\n");
 			free(m.msg);
 			return false;
 	}
@@ -1298,6 +1310,8 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 	if(!is_authenticated){
 		send_server_login_failed_msg(fd_ptr->client_sockfd);
 		if ((*fd_ptr).num_authentication_attempts == ALLOWED_TRIALS) {
+			printf("Socket number: %d failed to authenticate too many times, closing connection.\n",
+					(*fd_ptr).client_sockfd);
 			close((*fd_ptr).client_sockfd);
 			init_active_fd(fd_ptr);
 		}
@@ -1343,7 +1357,7 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr,
 		case (NO_CLIENT_YET):
 		case (CLIENT_IS_OFFLINE):
 			//Never suppposed to get here:
-			printf("Error: in function handle_msg_from_active_fd(), client status is invalid.\n");
+			printf("Error: in function handle_msg_from_active_fd(), client status is invalid. Closing connection.\n");
 			close(fd_ptr->client_sockfd);
 			init_active_fd(fd_ptr);
 			return;
@@ -1352,8 +1366,10 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr,
 			get_authentication_msg(fd_ptr, ptr_to_all_users_info, ptr_dir_path);
 			return;
 		default: //CLIENT_IS_CONNECTED
-			//TODO::
-			break;
+			//TODO:: edit!
+			if(!get_msg_and_answer_it(fd_ptr, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path)){
+				printf("Getting or answering client's message failed, continue to next client\n");
+			}
 	}
 
 }
