@@ -36,6 +36,7 @@
 #define CLIENT_CLOSE_MSG 5
 #define CLIENT_FRIENDLY_MSG 6
 #define CLIENT_GET_USERS_MSG 7
+#define CLIENT_FRIENDLY_MSG_WAS_HANDLED 8
 
 #define SERVER_WELCOME_MSG 0
 #define SERVER_LOGIN_PASS_MSG 1
@@ -64,7 +65,8 @@ struct msg {
 	int type;
 	int len;
 };
-
+unsigned char approveFriendly[SIZE_OF_PREFIX];
+void initApprovedFriendly();
 void printDebugString(const char* str);
 void printDebugInt(int n);
 bool printUnsignedCharArr(const unsigned char* arr, int len,bool prefix, bool onlyDebug, bool printNewLine);
