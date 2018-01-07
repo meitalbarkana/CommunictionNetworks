@@ -1451,11 +1451,9 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr,
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
  **/
 void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
-	
-	bool asked_to_quit, is_authenticated;
+
 	int server_listen_sockfd, highest_sockfd;
-	struct sockaddr_in server_addr, client_addr;
-	socklen_t addr_len = sizeof(struct sockaddr_in);
+	struct sockaddr_in server_addr;
 	fd_set read_fds;
 	int action = -1;
 	
@@ -1501,37 +1499,7 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 					}
 				}
 		}
-		
-////////////////////////////////////////////////////////////////////////
-	/**	
 
-		//Waits for client requests	
-		while(!asked_to_quit){
-			printDebugString("inside inner while-loop");
-			//For now, if client sends invalid messages we continue to serve him until he sends a valid 'quit'
-			if(!get_msg_and_answer_it(connected_sockfd, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path, curr_username, &asked_to_quit)){
-				printf("Getting or answering client's message failed, continues to next client\n");
-				asked_to_quit = true;
-			}
-			else{
-				printDebugString("Got msg.\n asked to quit value is:");
-				printDebugString((asked_to_quit ? "true" : "false"));
-			}
-		}
-		
-		if(close(connected_sockfd) == -1){
-			printf("Failed closing socket, error is: %s.\n Closing server.\n",strerror(errno));
-			free(curr_username);
-			free(curr_user_dir_path);
-			return;
-		}
-		
-		free(curr_username);
-		free(curr_user_dir_path);
-		curr_username = curr_user_dir_path = NULL;
-	}
-	**/
-////////////////////////////////////////////////////////////////////////
 	}
 }
 
