@@ -183,10 +183,10 @@ static enum ServerErrors get_users_info_from_file(const char* path_to_file,user_
 	}
 	
 	if((fp = fopen(path_to_file,"r")) == NULL){
-			free(*ptr_to_all_users_info);
-			free(temp_username);
-			free(temp_password);
-			return USERS_FILE_NOT_OPENED;
+		free(*ptr_to_all_users_info);
+		free(temp_username);
+		free(temp_password);
+		return USERS_FILE_NOT_OPENED;
 	}
 	
 	//Read file line-by-line:
@@ -468,10 +468,7 @@ static bool exstract_fname_txt_from_msg(const char* buff, char** file_name , uns
 		free(*txt);
 		return false;
 	}
-	printDebugString("file name extracted from msg is:");
-	printDebugString(*file_name);
-	printDebugString("txt extracted from msg is:");
-	printDebugString((char*)*txt);	
+
 	return true;
 } 
 
@@ -580,8 +577,9 @@ static enum DeleteFileStatus delete_users_file(const char* file_name, const char
  *			2. FILE_ALREADY_EXIST - if file already exists, it WON'T be overwritten.
  * 			3. FILE_ADDITION_FAILED - if failed
  **/
-static enum AddFileStatus write_txt_to_file(const char* dir_path, const char* user_name, unsigned char** txt, const char* file_name){
-	
+static enum AddFileStatus write_txt_to_file(const char* dir_path,
+		const char* user_name, unsigned char** txt, const char* file_name)
+{	
 	enum AddFileStatus ret =  FILE_ADDITION_FAILED;
 	
 	char* path_to_file;
@@ -778,7 +776,6 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
  * 
  * 	Returns true if suceeded, false otherwise.
  **/
- //int sockfd, char** user_name
 static bool get_user_details(active_fd* fd_ptr, user_info*** ptr_to_all_users_info){
 	
 	if (fd_ptr == NULL || ptr_to_all_users_info == NULL){
@@ -798,6 +795,7 @@ static bool get_user_details(active_fd* fd_ptr, user_info*** ptr_to_all_users_in
 		return false;
 	}
 
+	//(*fd_ptr).num_authentication_attempts updated inside is_valid_user():
 	bool ans = is_valid_user(ptr_to_all_users_info, (char*)m.msg, fd_ptr);
 
 	free(m.msg);
@@ -1169,6 +1167,50 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 }
 
 /**
+ * 	Takes care of a requested for a list of all users online.
+ * 
+ * 	Gets:	m - pointer to the message from client,
+ * 			afd - pointer to relevant active_fd,
+ *			ptr_to_all_users_info - pointer to all users' info.
+ * 
+ * 	Returns: true if msg was treated successfully, false otherwise
+ **/
+static bool handle_get_users_online_msg(struct msg* m, active_fd* afd,
+		user_info*** ptr_to_all_users_info)
+{
+	//TODO:: add a relevant function (build_all_online_users_str) :)
+	char* txt = build_all_online_users_str(ptr_to_all_users_info);
+	if (txt == NULL) {
+		//Creating list failed, errors already been printed in build_all_online_users_str()
+		return false;
+	}
+	
+	//TODO:: edit this function from here and on (not sure if i finished editing it):
+	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(txt), sizeof(unsigned char));
+	if (total_msg == NULL) {
+		printf("Generating msg of list of online users failed.\n");
+		free(txt);
+		return false;
+	}
+
+	intToString(strlen(txt), SIZE_OF_LEN, total_msg);
+	intToString(SERVER_ALL_CONNECTED_USERS_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+	memcpy(total_msg+SIZE_OF_PREFIX, txt, strlen(txt));
+
+	int total_msg_len = SIZE_OF_PREFIX+strlen(txt);
+	if (sendall((*afd).client_sockfd, total_msg, &total_msg_len) < 0) {
+		printf("Sending list of online users to client failed.\n");
+		free(total_msg);
+		return false;
+	}
+	
+	free(total_msg);
+	free(txt);
+	return true;
+}
+
+
+/**
  * 	Takes care of getting a message from client (that isn't the login message)
  * 	Gets:	A pointer to an active_fd - a connection which is ready to be received from,
  * 			pointer to all users' info,
@@ -1229,8 +1271,15 @@ static bool get_msg_and_answer_it(active_fd* afd, user_info*** ptr_to_all_users_
 			}
 			init_active_fd(afd);
 			break;
+			
 		
-		///TODO:: add all relevant new cases!
+		case(CLIENT_FRIENDLY_MSG):
+			///TODO:: edit this new case:
+			break;
+		
+		case(CLIENT_GET_USERS_MSG):
+			ans = handle_get_users_online_msg(&m, afd, ptr_to_all_users_info);
+			break;
 		
 		default: //Client sent invalid msg
 			printf("Client sent invalid message.\n");
@@ -1299,7 +1348,6 @@ static int init_fd_set(fd_set* read_fds, int server_listen_sockfd){
  *  
  *	NOTE:	if number of active_fd's already is MAX_USERS,
  * 			will close this new connection
- * 
  **/
 static void handle_new_connection_attempt(int server_listen_sockfd){
 	struct sockaddr_in temp_client_addr;
@@ -1377,8 +1425,7 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 		
 		if((curr_user_dir_path = concat_strings(*ptr_dir_path,
 				(*fd_ptr).client_info->username, false)) == NULL)
-		{
-			//Not supposed to get here:
+		{//Not supposed to get here:
 			printf("Failed creating path to user directory, couldn't generate SERVER_LOGIN_PASS_MSG\n");
 			return;
 		}
@@ -1386,8 +1433,7 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 		//Sends SERVER_LOGIN_PASS_MSG:
 		if (!send_status_msg((*fd_ptr).client_sockfd, curr_user_dir_path,
 				(*fd_ptr).client_info->username))
-		{
-			//Not supposed to get here:
+		{//Not supposed to get here:
 			printf("Failed sending SERVER_LOGIN_PASS_MSG. Continuing to next client.\n");
 		}
 		free(curr_user_dir_path);
@@ -1463,8 +1509,6 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 		return;
 	}
 	
-	//TODO:: check if fcntl() is needed?
-	
 	while(true){
 		// Here just for tests: stops server from running if file named "exit.txt" 
 		// was found in all-users-directory:
@@ -1513,8 +1557,8 @@ int main(int argc, char* argv[]){
 		printf("Initiating server failed\n");
 		return -1;
 	}
-	//print_users_array(&ptr_all_users_info); //Test Line
 	
+	//print_users_array(&ptr_all_users_info); //Test Line
 	start_service(&ptr_all_users_info, &dir_path);
 		
 	free_users_array(&ptr_all_users_info);
