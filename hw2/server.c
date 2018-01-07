@@ -65,7 +65,7 @@ void free_users_array(user_info*** ptr_to_all_users_info){
 /**
  * 	Helper function, that on success returns a string representing full path to file_name:
  * 	(in format: dir_path/user_name/file_name)
- * 	Note: dir_path already contains '/' at its end.
+ * 	Note: dir_path should already contain '/' at its end.
  *		  User of this function should free allocated memory of the string returned.
  * 	Returns NULL if failed.
  **/
@@ -552,6 +552,9 @@ static char* get_list_of_files(const char* dir_path){
  *			 3. FILE_DELETION_FAILED - if any other error occurred.
  **/
 static enum DeleteFileStatus delete_users_file(const char* file_name, const char* user_dir_path){
+	if (strcmp(file_name, STR_OFFLINE_FILE) == 0) {
+		return FILE_DELETION_DENIED;
+	}
 	char* path_to_file = concat_strings(user_dir_path, file_name, false);
 	if (path_to_file == NULL) {
 		printf("Allocation error, couldn't create full path to file.\n");
@@ -900,6 +903,9 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 		case(FILE_WASNT_FOUND):
 			msg_txt = "No such file exists!";
 			break;
+		case(FILE_DELETION_DENIED):
+			msg_txt = "Access denied";
+			break;
 		default: //case(FILE_DELETION_FAILED):
 			msg_txt = "File deletion failed.";
 	}
@@ -1045,6 +1051,122 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 
 }
 
+/**
+ * 	Takes care of deleting a file requested by client
+ * 
+ * 	Gets:	A pointer to the message from client,
+ * 			pointer to relevant active_fd,
+ * 			path to the user's directory
+ * 
+ * 	Returns: true if delete msg was treated successfully, false otherwise
+ **/
+static bool handle_delete_file_msg(struct msg* m, active_fd* afd, const char* user_dir_path){
+	
+	if (m == NULL || afd == NULL || user_dir_path== NULL) {
+		printf ("Error: function handle_delete_file_msg() got NULL argument.\n");
+		return false;
+	}
+	
+	//Since m.len includes '\n' but doesn't include '\0', they'll be the same length:
+	char* temp_fname = calloc((*m).len, sizeof(char));
+	
+	if (temp_fname == NULL){
+		printf("Allocation failed when trying to delete a file client has asked\n");
+		return false;
+	}
+	strncpy(temp_fname, (char*)((*m).msg), (*m).len);
+	
+	bool ans = delete_file_and_report_client((*afd).client_sockfd, user_dir_path, temp_fname);
+	free(temp_fname);
+	
+	return ans;
+}
+
+/**
+ * 	Takes care of adding a file requested by client
+ * 
+ * 	Gets:	m - pointer to the message from client,
+ * 			afd - pointer to relevant active_fd,
+ * 			user_dir_path - path to the user's directory
+ * 			ptr_dir_path - path to the directory where all users' directories are
+ * 
+ * 	Returns: true if adding a file msg was treated successfully, false otherwise
+ **/
+static bool handle_add_file_msg(struct msg* m, active_fd* afd,
+		const char* user_dir_path, char*const *ptr_dir_path )
+{
+	unsigned char* txt = NULL;
+	char* temp_fname = NULL;
+	
+	if( number_of_files_in_directory(user_dir_path, MAX_FILES_FOR_USER)
+		>= MAX_FILES_FOR_USER )
+	{
+		printf("User tried adding more files than allowed\n");
+		return(send_client_add_msg_result((*afd).client_sockfd,
+				"Adding file failed: maximum amount of files, delete one to make room."));
+	}
+
+	char* buff = calloc((*m).len+1, sizeof(char));
+	if (buff == NULL){
+		printf("Allocation failed when trying to add a file client has asked\n");
+		send_client_add_msg_result((*afd).client_sockfd, "Adding file failed: server error");
+		return false;
+	}
+	strncpy(buff, (char*)((*m).msg), (*m).len);
+	
+	size_t msg_len = (size_t)((*m).len); //Safe casting since (*m).len>=0
+
+	if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
+		printf("Extracting name of file and its content from clients' msg failed\n");
+		send_client_add_msg_result((*afd).client_sockfd,
+				"Adding file failed: extracting filename and its content failed.");
+		free(buff);
+		free(temp_fname);
+		free(txt);
+		return false;
+	}
+	free(buff);
+	if (!add_file_and_report_client((*afd).client_sockfd, *ptr_dir_path,
+			(*afd).client_info->username, &txt, temp_fname))
+	{
+		printf("Adding file asked by client failed.\n");
+		free(txt);
+		free(temp_fname);
+		return false;
+	}
+	free(txt);
+	free(temp_fname);
+	return true;
+}
+
+/**
+ * 	Takes care of a request to download a file.
+ * 
+ * 	Gets:	m - pointer to the message from client,
+ * 			afd - pointer to relevant active_fd,
+ * 			ptr_dir_path - path to the directory where all users' directories are
+ * 
+ * 	Returns: true if download request treated successfully, false otherwise
+ **/
+static bool handle_download_file_msg(struct msg* m, active_fd* afd,
+		char*const *ptr_dir_path )
+{
+	char* temp_fname = calloc((*m).len+1, sizeof(char));
+	if (temp_fname == NULL){
+		printf("Allocation failed when trying to send a file client has asked\n");
+		return false;
+	}
+	
+	strncpy(temp_fname, (char*)((*m).msg), (*m).len);
+	
+	if(!send_file_to_client((*afd).client_sockfd, *ptr_dir_path, (*afd).client_info->username, temp_fname)){
+		free(temp_fname);
+		return false;
+	}
+	free(temp_fname);
+	return true;
+	
+}
 
 /**
  * 	Takes care of getting a message from client (that isn't the login message)
@@ -1056,22 +1178,18 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
  * 	Returns: true if msg was treated successfully,
  * 			 false when communication has ended: some error happend / user sent invalid msg
  **/
-static bool get_msg_and_answer_it(active_fd* afd, , user_info*** ptr_to_all_users_info,
+static bool get_msg_and_answer_it(active_fd* afd, user_info*** ptr_to_all_users_info,
 		char*const *ptr_dir_path,const char* user_dir_path)
 {
+	bool ans = false;
 	
 	if (afd == NULL || ptr_to_all_users_info == NULL || 
 			ptr_dir_path == NULL || user_dir_path== NULL)
 	{
-		printf ("Function get_msg_and_answer_it() got NULL argument.\n");
+		printf ("Error: function get_msg_and_answer_it() got NULL argument.\n");
 		return false;
 	}
-
-	//TODO:: edit all!
 	
-	char* temp_fname = NULL;
-	char* buff = NULL;
-	unsigned char* txt = NULL;
 	struct msg m = { NULL, -1, -1 };
 	if (getMSG((*afd).client_sockfd, &m) < 0){
 		printf("Server failed to get client's message.\n");
@@ -1088,102 +1206,39 @@ static bool get_msg_and_answer_it(active_fd* afd, , user_info*** ptr_to_all_user
 	switch(m.type){
 		
 		case(CLIENT_FILES_LIST_MSG):
-			if (!send_listfiles_to_client((*afd).client_sockfd, user_dir_path)){
-				free(m.msg);
-				return false;
-			}
+			ans = send_listfiles_to_client((*afd).client_sockfd, user_dir_path);
 			break;
 			
 		case(CLIENT_FILE_DELETE_MSG):
-			temp_fname = calloc(m.len, sizeof(char)); //Since m.len includes '\n' but doesn't include '\0', they'll be the same length
-			if (temp_fname == NULL){
-				printf("Allocation failed when trying to delete a file client has asked\n");
-				free(m.msg);
-				return false;
-			}
-			strncpy(temp_fname, (char*)m.msg, m.len);
-			
-			if(!delete_file_and_report_client((*afd).client_sockfd, user_dir_path, temp_fname)){
-				free(temp_fname);
-				free(m.msg);
-				return false;
-			}
-			free (temp_fname);
+			ans = handle_delete_file_msg(&m, afd, user_dir_path);
 			break;
 			
-		case(CLIENT_FILE_ADD_MSG):
-					
-			if(number_of_files_in_directory(user_dir_path, MAX_FILES_FOR_USER) >= MAX_FILES_FOR_USER){
-				printf("User tried adding more files than allowed\n");
-				free(m.msg);
-				return(send_client_add_msg_result((*afd).client_sockfd,
-						"Adding file failed: maximum amount of files, delete one to make room."));
-			}
-		
-			buff = calloc(m.len+1, sizeof(char));
-			if (buff == NULL){
-				printf("Allocation failed when trying to add a file client has asked\n");
-				send_client_add_msg_result((*afd).client_sockfd, "Adding file failed: server error");
-				free(m.msg);
-				return false;
-			}
-			strncpy(buff, (char*)m.msg, m.len);
-			
-			size_t msg_len = (size_t)m.len; //Safe casting since m.len>=0
-			printDebugString("msg_len value is:");
-			printDebugInt(msg_len);
-			if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
-				printf("Extracting name of file and its content from clients' msg failed\n");
-				send_client_add_msg_result((*afd).client_sockfd,
-						"Adding file failed: extracting filename and its content failed.");
-				free(buff);
-				free(m.msg);
-				return false;
-			}
-			free(buff);
-			if (!add_file_and_report_client(sockfd, *ptr_dir_path, (*afd).client_info->username, &txt, temp_fname)){
-				printf("Adding file asked by client failed.\n");
-				free(txt);
-				free(temp_fname);
-				free(m.msg);
-				return false;
-			}
-			free(txt);
-			free(temp_fname);
+		case(CLIENT_FILE_ADD_MSG):		
+			ans = handle_add_file_msg(&m, afd, user_dir_path, ptr_dir_path);
 			break;
 		
 		case(CLIENT_FILE_DOWNLOAD_MSG):
-		
-			temp_fname = calloc(m.len+1, sizeof(char));
-			if (temp_fname == NULL){
-				printf("Allocation failed when trying to send file client has asked\n");
-				free(m.msg);
-				return false;
-			}
-			strncpy(temp_fname, (char*)m.msg, m.len);
-			
-			if(!send_file_to_client(sockfd, *ptr_dir_path, (*afd).client_info->username, temp_fname)){
-				free(temp_fname);
-				free(m.msg);
-				return false;
-			}
-			free(temp_fname);
+			ans = handle_download_file_msg(&m, afd, ptr_dir_path);
 			break;
 		
 		case(CLIENT_CLOSE_MSG):
 			if(close((*afd).client_sockfd) == -1){
 				printf("Failed closing client's socket. error is: %s.\n",strerror(errno));
+			} else {
+				ans = true;
 			}
 			init_active_fd(afd);
 			break;
 		
+		///TODO:: add all relevant new cases!
+		
 		default: //Client sent invalid msg
 			printf("Client sent invalid message.\n");
-			free(m.msg);
-			return false;
+			ans = false;
 	}
+	
 	free(m.msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -1199,11 +1254,10 @@ static bool stop_running(const char* dir_path){
 	int i = 0;
 	
 	dp = opendir (dir_path);
-	if (dp == NULL)
-   	{
+	if (dp == NULL) {
 		printf("Couldn't open the directory\n");
 		return false;
-    	}
+    }
     
 	while ((ep = (struct dirent*)readdir(dp)) && (i < MAX_FILES_TO_CHECK)){
 		if (ep->d_type == DT_REG){ //Insert only regular files to the list
@@ -1341,35 +1395,52 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
  }
 
 /**
- *	Gets a pointer to an active_fd that is ready to be received from
- *	Receives the msg from it and handles it accordingly.
+ *	Gets:
+ *		fd_ptr - a pointer to an active_fd that is ready to be received from
+ * 		ptr_to_all_users_info - all users information
+ *		ptr_dir_path - path to the directory where all users' directories are
+ *
+ *	Receives the msg from the active fd and handles it accordingly.
+ *	[If any error accures, prints it to the screen]
  **/
 static void handle_msg_from_active_fd(active_fd* fd_ptr,
 		user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 {
+	char* curr_user_dir_path = NULL;
 	
-	if (fd_ptr == NULL) {
+	if (fd_ptr == NULL || ptr_to_all_users_info==NULL ||
+			ptr_dir_path == NULL)
+	{
 		printf("Error: function handle_msg_from_active_fd() got NULL argument.\n");
 		return;
 	}
 	
 	switch (fd_ptr->client_status){
+		
 		case (NO_CLIENT_YET):
 		case (CLIENT_IS_OFFLINE):
-			//Never suppposed to get here:
+		//Never suppposed to get here:
 			printf("Error: in function handle_msg_from_active_fd(), client status is invalid. Closing connection.\n");
 			close(fd_ptr->client_sockfd);
 			init_active_fd(fd_ptr);
 			return;
+		
 		case (WELCOME_MSG_SENT): 
 		//Means this msg supposed to be the authentication msg from client:
 			get_authentication_msg(fd_ptr, ptr_to_all_users_info, ptr_dir_path);
 			return;
-		default: //CLIENT_IS_CONNECTED
-			//TODO:: edit!
+		
+		default: 
+		//CLIENT_IS_CONNECTED
+			if((curr_user_dir_path = concat_strings(*ptr_dir_path, (*fd_ptr).client_info->username, false)) == NULL){
+				printf("Failed creating path to user directory\n");//Not supposed to get here.
+				return;//Continue to next client
+			}
+			
 			if(!get_msg_and_answer_it(fd_ptr, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path)){
 				printf("Getting or answering client's message failed, continue to next client\n");
 			}
+			free(curr_user_dir_path);
 	}
 
 }
