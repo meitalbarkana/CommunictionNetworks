@@ -1167,6 +1167,59 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 }
 
 /**
+ *	Gets a pointer to user_info,
+ *	Returns true if this user is online (means it has an active_fd and 
+ *	its status is CLIENT_IS_CONNECTED)
+ **/
+static bool is_user_online(user_info* ptr_to_user_info){
+	if (ptr_to_user_info == NULL) {
+		printf("Error: function is_user_online() got NULL argument.\n");
+		return false;
+	}
+	for (size_t i = 0; i < MAX_USERS; ++i){
+		if (active_fds[i].client_info == ptr_to_user_info){
+			if(active_fds[i].client_status == CLIENT_IS_CONNECTED){
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ *	Returns a list off all connected users in format:
+ *	<username0>'\n'<username1>'\n'...'\n'<last username>'\0'
+ *
+ *	Note:	1. Returns NULL if an error accured,
+ * 			2. Returns an empty string if all users are not connected
+ * 			3. USER SHOULD FREE MEMORY ALLOCATED for char* returned.
+ **/
+static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
+	char* txt = calloc(((MAX_USERNAME_LEN+1)*MAX_USERS), sizeof(char)); //+2 for '\n' xor '\0'
+	if (txt == NULL){
+		printf("Allocation failed when trying to build users-online-list.\n");
+		return NULL;
+	}
+	
+	size_t len_txt = 0;
+	for (size_t i = 0; i < number_of_valid_users; ++i){
+		if(is_user_online((*ptr_to_all_users_info)[i])){
+			if(len_txt > 0){
+				txt[len_txt] = '\n';
+				len_txt++;
+			}
+			memcpy( txt+len_txt, ((*ptr_to_all_users_info)[i])->username,
+					strlen(((*ptr_to_all_users_info)[i])->username) );
+			len_txt += strlen(((*ptr_to_all_users_info)[i])->username);
+		}
+	}
+	printf("List of all users online is: [%s]", txt);//TODO:: delete this line, only for tests!
+	return txt;
+}
+
+/**
  * 	Takes care of a requested for a list of all users online.
  * 
  * 	Gets:	m - pointer to the message from client,
@@ -1178,17 +1231,15 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 static bool handle_get_users_online_msg(struct msg* m, active_fd* afd,
 		user_info*** ptr_to_all_users_info)
 {
-	//TODO:: add a relevant function (build_all_online_users_str) :)
 	char* txt = build_all_online_users_str(ptr_to_all_users_info);
 	if (txt == NULL) {
 		//Creating list failed, errors already been printed in build_all_online_users_str()
 		return false;
 	}
 	
-	//TODO:: edit this function from here and on (not sure if i finished editing it):
 	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(txt), sizeof(unsigned char));
 	if (total_msg == NULL) {
-		printf("Generating msg of list of online users failed.\n");
+		printf("Generating msg containing a list of online users failed.\n");
 		free(txt);
 		return false;
 	}
@@ -1198,15 +1249,15 @@ static bool handle_get_users_online_msg(struct msg* m, active_fd* afd,
 	memcpy(total_msg+SIZE_OF_PREFIX, txt, strlen(txt));
 
 	int total_msg_len = SIZE_OF_PREFIX+strlen(txt);
+	bool ans = true;
 	if (sendall((*afd).client_sockfd, total_msg, &total_msg_len) < 0) {
 		printf("Sending list of online users to client failed.\n");
-		free(total_msg);
-		return false;
+		ans = false;
 	}
 	
 	free(total_msg);
 	free(txt);
-	return true;
+	return ans;
 }
 
 
