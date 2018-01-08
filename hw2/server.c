@@ -1065,8 +1065,8 @@ static bool handle_delete_file_msg(struct msg* m, active_fd* afd, const char* us
 		return false;
 	}
 	
-	//Since m.len includes '\n' but doesn't include '\0', they'll be the same length:
-	char* temp_fname = calloc((*m).len, sizeof(char));
+	//+1 since m.len doesn't include '\0':
+	char* temp_fname = calloc((*m).len+1, sizeof(char));
 	
 	if (temp_fname == NULL){
 		printf("Allocation failed when trying to delete a file client has asked\n");
@@ -1215,7 +1215,8 @@ static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
 			len_txt += strlen(((*ptr_to_all_users_info)[i])->username);
 		}
 	}
-	printf("List of all users online is: [%s]", txt);//TODO:: delete this line, only for tests!
+	printf("List of all users' length is: %u\n", len_txt);//TODO:: delete this line, only for tests!
+	printf("List of all users online is: [%s]\n", txt);//TODO:: delete this line, only for tests!
 	return txt;
 }
 
