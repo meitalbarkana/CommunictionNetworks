@@ -1215,8 +1215,7 @@ static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
 			len_txt += strlen(((*ptr_to_all_users_info)[i])->username);
 		}
 	}
-	printf("List of all users' length is: %u\n", len_txt);//TODO:: delete this line, only for tests!
-	printf("List of all users online is: [%s]\n", txt);//TODO:: delete this line, only for tests!
+
 	return txt;
 }
 

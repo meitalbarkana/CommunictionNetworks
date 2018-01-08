@@ -80,7 +80,7 @@ int recvall(int s, unsigned char *buf, int *len) {
 	//printUnsignedCharArr(buf,*len,true,true);
 	int total = 0; // how many bytes we've recv
 	int bytesleft = *len; // how many we have left to recv 
-	int n;
+	int n = 0;
 
 	while (total < *len) {
 		n = recv(s, buf + total, bytesleft, 0);
@@ -119,7 +119,7 @@ void printFriendly(int iFd){
 	return ;
 
 }
-	int getMSGOrPrintFriendly(int iFd, struct msg * msg,bool justFriendly) {
+int getMSGOrPrintFriendly(int iFd, struct msg * msg,bool justFriendly) {
 	printDebugString("in getMSG, socket fd is:");
 	printDebugInt(iFd);
 	getIntFromMsg(iFd, SIZE_OF_LEN, &msg->len);

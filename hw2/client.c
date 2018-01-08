@@ -248,7 +248,7 @@ bool getUsersRequest(int iFd) {
 		return false;
 	}
 	free(msg);
-	return getAndPrint(iFd, SERVER_ALL_CONNECTED_USERS_MSG, false);
+	return getAndPrint(iFd, SERVER_ALL_CONNECTED_USERS_MSG, true);
 }
 
 int generateFriendlyMSG(unsigned char** msg, char* user, const char* msgToSend) {
