@@ -45,6 +45,9 @@ void free_users_array(user_info*** ptr_to_all_users_info){
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		free(((*ptr_to_all_users_info)[i])->username);
 		free(((*ptr_to_all_users_info)[i])->password);
+		if (((*ptr_to_all_users_info)[i])->path_to_offline_file != NULL){
+			free(((*ptr_to_all_users_info)[i])->path_to_offline_file);
+		}
 		free((*ptr_to_all_users_info)[i]);
 	}
 	number_of_valid_users = 0;
@@ -120,7 +123,8 @@ static bool alloc_userinfo_array_and_temps(user_info*** ptr_to_all_users_info,ch
 }
 
 /**
- *  Allocates enough space for user_info struct and it's fields,
+ *  Allocates enough space for user_info struct and it's fields (except
+ *	for path_to_offline_file which is allocated later),
  * 	According to parameters provided.
  *	Initiates fields to default values.
  * 
@@ -134,6 +138,7 @@ static bool alloc_userinfo(user_info*** ptr_to_all_users_info, size_t len_temp_u
 	}
 	(*ptr_to_all_users_info)[number_of_valid_users]->username = calloc(len_temp_username+1, sizeof(char)); 
 	(*ptr_to_all_users_info)[number_of_valid_users]->password = calloc(len_temp_password+1, sizeof(char));
+	(*ptr_to_all_users_info)[number_of_valid_users]->path_to_offline_file = NULL;
 	
 	if (((*ptr_to_all_users_info)[number_of_valid_users]->username == NULL) || ((*ptr_to_all_users_info)[number_of_valid_users]->password  == NULL))
 	{ // Allocation failed
@@ -244,6 +249,9 @@ static void delete_user_from_list(const char* username_to_delete, user_info*** p
 		if (strncmp(((*ptr_to_all_users_info)[i])->username, username_to_delete, MAX_USERNAME_LEN+1) == 0){
 			free(((*ptr_to_all_users_info)[i])->username);
 			free(((*ptr_to_all_users_info)[i])->password);
+			if (((*ptr_to_all_users_info)[i])->path_to_offline_file != NULL){
+				free(((*ptr_to_all_users_info)[i])->path_to_offline_file);
+			}
 			free((*ptr_to_all_users_info)[i]);
 			//update pointers:
 			for (size_t j = 0; j < (number_of_valid_users-i-1); ++j){
@@ -266,7 +274,6 @@ static void delete_user_from_list(const char* username_to_delete, user_info*** p
 static bool create_directories(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path){
 	FILE* fp = NULL;
 	char* dir_name = NULL;
-	char* offline_file_name = NULL;
 	bool res = false;
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){	
@@ -280,17 +287,14 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 		if(mkdir(dir_name, (S_IRWXU | S_IRWXG | S_IRWXO)) == 0 ) { //If succeed creating the directory
 			
 			//Create the file STR_OFFLINE_FILE in that directory:
-			offline_file_name = generate_path_to_file(
+			((*ptr_to_all_users_info)[i])->path_to_offline_file = generate_path_to_file(
 					(*ptr_dir_path),
 					(((*ptr_to_all_users_info)[i])->username),
 					STR_OFFLINE_FILE );
 			
-			if ( (offline_file_name == NULL) ||
-				((fp = fopen(offline_file_name, "w")) == NULL) )
+			if ( (((*ptr_to_all_users_info)[i])->path_to_offline_file == NULL) ||
+				((fp = fopen(((*ptr_to_all_users_info)[i])->path_to_offline_file, "w")) == NULL) )
 			{ //Allocation or creating file failed:
-				if (offline_file_name){
-					free(offline_file_name);
-				}
 				printf("Creating file for messages received offline for user: %s failed, deleting this user from user-list.\n", 
 						((*ptr_to_all_users_info)[i])->username);
 				delete_user_from_list( (((*ptr_to_all_users_info)[i])->username),
@@ -299,7 +303,6 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 				continue;
 			}
 			fclose(fp);
-			free(offline_file_name);
 			res = true;
 			
 		} else { //Creating directory failed
@@ -1191,6 +1194,8 @@ static bool is_user_online(user_info* ptr_to_user_info){
 /**
  *	Returns a list off all connected users in format:
  *	<username0>'\n'<username1>'\n'...'\n'<last username>'\0'
+ *	IN ORDER WHICH THEY APPEARED IN USERS-FILE! (ptr_to_all_users_info
+ *	is ordered according to that file)
  *
  *	Note:	1. Returns NULL if an error accured,
  * 			2. Returns an empty string if all users are not connected
@@ -1207,7 +1212,7 @@ static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		if(is_user_online((*ptr_to_all_users_info)[i])){
 			if(len_txt > 0){
-				txt[len_txt] = '\n';
+				txt[len_txt] = ',';
 				len_txt++;
 			}
 			memcpy( txt+len_txt, ((*ptr_to_all_users_info)[i])->username,

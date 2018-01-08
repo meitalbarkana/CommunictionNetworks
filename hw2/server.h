@@ -25,6 +25,7 @@ enum ClientStatus{
 typedef struct{
 	char* username;
 	char* password;
+	char* path_to_offline_file;
 } user_info;
 
 typedef struct {
