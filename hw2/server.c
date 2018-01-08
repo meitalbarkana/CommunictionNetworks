@@ -293,7 +293,7 @@ static bool create_directories(user_info*** ptr_to_all_users_info, char*const *p
 					STR_OFFLINE_FILE );
 			
 			if ( (((*ptr_to_all_users_info)[i])->path_to_offline_file == NULL) ||
-				((fp = fopen(((*ptr_to_all_users_info)[i])->path_to_offline_file, "w")) == NULL) )
+				((fp = fopen(((*ptr_to_all_users_info)[i])->path_to_offline_file, "w+")) == NULL) )
 			{ //Allocation or creating file failed:
 				printf("Creating file for messages received offline for user: %s failed, deleting this user from user-list.\n", 
 						((*ptr_to_all_users_info)[i])->username);
@@ -933,28 +933,40 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 }
 
 /**
- * 	Helper function: sends client a message that adding file succeeded/failed.
+ * 	Helper function: sends client a feedback message about:
+ *		1. in case msg_type==SERVER_FILE_ADD_MSG: adding file succeeded/failed.
+ *		2. otherwise (in case msg_type==SERVER_STATUS_FRIENDLY_MSG: what
+ * 			happened, as described in msg_txt
+ * 
  * 	@sockfd
- * 	@msg_txt - Null-terminated string describing the failure,
+ * 	@msg_txt - Null-terminated string describing the feedback,
  * 				(what we want the client to know)
  * 
  * 	Returns true if succeeded
  **/
-static bool send_client_add_msg_result(int sockfd, const char* msg_txt){
+static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 	
 	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(msg_txt), sizeof(unsigned char));
 	if (total_msg == NULL) {
-		printf("Generating msg about file addition failed.\n");
+		if (msg_type == SERVER_FILE_ADD_MSG) {
+			printf("Generating msg about file addition failed.\n");
+		} else {
+			printf("Generating msg about friendly msg's status failed.\n");
+		}
 		return false;
 	}
 	
 	intToString(strlen(msg_txt), SIZE_OF_LEN, total_msg);
-	intToString(SERVER_FILE_ADD_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
+	intToString(msg_type, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
 	memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, strlen(msg_txt));
 
 	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
 	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
-		printf("Sending info about file-addition to client failed.\n");
+		if (msg_type == SERVER_FILE_ADD_MSG) {
+			printf("Sending feedback about file-addition to client failed.\n");
+		} else {
+			printf("Sending feedback about friendly msg's status to client failed.\n");
+		}
 		free(total_msg);
 		return false;
 	}
@@ -989,7 +1001,7 @@ static bool add_file_and_report_client(int sockfd, const char* dir_path, const c
 			msg_txt = "Adding file failed.";
 	}
 	
-	return (send_client_add_msg_result(sockfd, msg_txt));
+	return (send_client_feedback(sockfd, msg_txt, SERVER_FILE_ADD_MSG));
 
 }
 
@@ -1103,14 +1115,16 @@ static bool handle_add_file_msg(struct msg* m, active_fd* afd,
 		>= MAX_FILES_FOR_USER )
 	{
 		printf("User tried adding more files than allowed\n");
-		return(send_client_add_msg_result((*afd).client_sockfd,
-				"Adding file failed: maximum amount of files, delete one to make room."));
+		return(send_client_feedback((*afd).client_sockfd,
+			"Adding file failed: maximum amount of files, delete one to make room.",
+			SERVER_FILE_ADD_MSG));
 	}
 
 	char* buff = calloc((*m).len+1, sizeof(char));
 	if (buff == NULL){
 		printf("Allocation failed when trying to add a file client has asked\n");
-		send_client_add_msg_result((*afd).client_sockfd, "Adding file failed: server error");
+		send_client_feedback((*afd).client_sockfd,
+			"Adding file failed: server error", SERVER_FILE_ADD_MSG);
 		return false;
 	}
 	strncpy(buff, (char*)((*m).msg), (*m).len);
@@ -1119,18 +1133,17 @@ static bool handle_add_file_msg(struct msg* m, active_fd* afd,
 
 	if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 		printf("Extracting name of file and its content from clients' msg failed\n");
-		send_client_add_msg_result((*afd).client_sockfd,
-				"Adding file failed: extracting filename and its content failed.");
 		free(buff);
-		free(temp_fname);
-		free(txt);
-		return false;
+		//free(temp_fname);	//free(txt); //deleted: already freed inside extract()
+		return (send_client_feedback((*afd).client_sockfd,
+			"Adding file failed: extracting filename and its content failed.",
+			SERVER_FILE_ADD_MSG));
 	}
 	free(buff);
 	if (!add_file_and_report_client((*afd).client_sockfd, *ptr_dir_path,
 			(*afd).client_info->username, &txt, temp_fname))
 	{
-		printf("Adding file asked by client failed.\n");
+		printf("Error: server error while adding file asked by client.\n");
 		free(txt);
 		free(temp_fname);
 		return false;
@@ -1233,7 +1246,7 @@ static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
  * 
  * 	Returns: true if msg was treated successfully, false otherwise
  **/
-static bool handle_get_users_online_msg(struct msg* m, active_fd* afd,
+static bool handle_get_users_online_msg(active_fd* afd,
 		user_info*** ptr_to_all_users_info)
 {
 	char* txt = build_all_online_users_str(ptr_to_all_users_info);
@@ -1265,6 +1278,46 @@ static bool handle_get_users_online_msg(struct msg* m, active_fd* afd,
 	return ans;
 }
 
+/**
+ * 	Takes care of a friendly message user asked to pass
+ * 
+ * 	Gets:	m - pointer to the message from client,
+ * 			afd - pointer to relevant active_fd,
+ *			ptr_to_all_users_info - pointer to all users' info.
+ * 
+ * 	Returns: true if msg was treated successfully, false otherwise
+ **/
+static bool handle_friendly_msg(struct msg* m, active_fd* afd,
+		user_info*** ptr_to_all_users_info)
+{
+	unsigned char* friendly_msg_content = NULL;
+	char* temp_username = NULL;
+	
+	char* buff = calloc((*m).len+1, sizeof(char));
+	if (buff == NULL){
+		printf("Allocation failed when trying to handle friendly message\n");
+		send_client_feedback((*afd).client_sockfd,
+			"Sending friendly message failed: server error", SERVER_STATUS_FRIENDLY_MSG);
+		return false;
+	}
+	strncpy(buff, (char*)((*m).msg), (*m).len);
+	
+	size_t msg_len = (size_t)((*m).len); //Safe casting since (*m).len>=0
+
+	//Next line is because exstract_fname_txt_from_msg() can be used also here -
+	//	to extract 2 strings from buff, where buff is in format: <str1>'\n'<str2>
+	if(!exstract_fname_txt_from_msg(buff, &temp_username, &friendly_msg_content, msg_len)){
+		printf("Extracting: [name of user] to send friendly msg to and [msg's content] from clients' msg failed\n");
+		free(buff);
+		return(send_client_feedback((*afd).client_sockfd,
+			"Sending friendly message failed: extracting designated user and msg's content failed.",
+			SERVER_STATUS_FRIENDLY_MSG));
+	}
+	free(buff);//?
+
+	///TODO:: continue edit this new case!!
+	return true;
+}
 
 /**
  * 	Takes care of getting a message from client (that isn't the login message)
@@ -1328,13 +1381,12 @@ static bool get_msg_and_answer_it(active_fd* afd, user_info*** ptr_to_all_users_
 			init_active_fd(afd);
 			break;
 			
-		
 		case(CLIENT_FRIENDLY_MSG):
-			///TODO:: edit this new case:
+			ans = handle_friendly_msg(&m, afd, ptr_to_all_users_info);
 			break;
 		
 		case(CLIENT_GET_USERS_MSG):
-			ans = handle_get_users_online_msg(&m, afd, ptr_to_all_users_info);
+			ans = handle_get_users_online_msg(afd, ptr_to_all_users_info);
 			break;
 		
 		default: //Client sent invalid msg
