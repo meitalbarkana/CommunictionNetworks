@@ -283,7 +283,7 @@ bool getSavedMSGS(int iFd) {
 }
 
 int main(int argc, char *argv[]) {
-
+	initApprovedFriendly();
 	// define target address
 	struct sockaddr_in dest_addr;
 	struct hostent *he;

@@ -1,5 +1,8 @@
 #include "utilities.h"
-
+void initApprovedFriendly(){
+intToString((unsigned int) 0, SIZE_OF_LEN, approveFriendly);
+intToString(CLIENT_FRIENDLY_MSG_WAS_HANDLED, SIZE_OF_TYPE, approveFriendly + SIZE_OF_LEN);
+}
 void printDebugString(const char* str){
 	if(DEBUG_MODE){
 		printf("%s\n",str);
@@ -135,6 +138,8 @@ void printFriendly(int iFd){
 
 	if(msg->type==SERVER_ACTUAL_FRIENDLY_MSG){
 		printUnsignedCharArr(msg->msg,msg->len,false,false,true);
+		int len = SIZE_OF_PREFIX;
+		sendall(iFd,approveFriendly,&len);
 		free(msg->msg);
 		return (justFriendly || getMSG(iFd, msg));
 	}
