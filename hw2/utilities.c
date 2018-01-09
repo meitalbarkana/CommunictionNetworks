@@ -241,6 +241,38 @@ bool StringTofile(unsigned char* msg, const char* filepath) {
 }
 
 /**
+ * 	APPENDS txt to file located in file_path
+ * 	Note: txt must be null-terminated
+ *	
+ *	Returns true on success.
+ **/
+bool AppendStringTofile(unsigned char* txt, const char* file_path,
+		bool add_new_line)
+{
+	FILE *f = fopen(file_path, "a");
+	if (f == NULL) {
+		printf("Failed opening file for appending.\n");
+		return false;
+	}
+	bool ans = true;
+	if (add_new_line){
+		if (fprintf(f,"%s\n",txt) != (1+strlen((char*)txt))) { 	
+			printf("Failed writing to file / wrote partial message to file.\n");
+			ans = false;
+		}		
+	} else {
+		if (fprintf(f,"%s",txt) != strlen((char*)txt)) { 	
+			printf("Failed writing to file / wrote partial message to file.\n");
+			ans = false;
+		}
+	}
+
+	fclose(f);
+	return ans;
+}
+
+
+/**
  * 	Gets 2 strings, and boolean that if true adds '\n' to the end of concatenated string.
  * 	Returns a concatenated string.
  * 	Note: user of this function has to free allocation!

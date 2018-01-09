@@ -74,6 +74,7 @@ void intToString(unsigned int iNum, unsigned int iSizeInBytes, unsigned char* iB
 unsigned int stringToInt(const unsigned char* iBuffer, unsigned int iSizeInBytes);
 bool fileToString(unsigned char** msg, const char* filepath, long* fsize);
 bool StringTofile(unsigned char* msg,const char* filepath);
+bool AppendStringTofile(unsigned char* txt, const char* file_path, bool add_new_line);
 
 bool doesPathExists(const char* path);
 bool isValidFilePath(const char* path);

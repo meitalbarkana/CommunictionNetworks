@@ -952,8 +952,9 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 /**
  * 	Helper function: sends client a feedback message about:
  *		1. in case msg_type==SERVER_FILE_ADD_MSG: adding file succeeded/failed.
- *		2. otherwise (in case msg_type==SERVER_STATUS_FRIENDLY_MSG: what
- * 			happened, as described in msg_txt
+ *		2. in case msg_type==SERVER_STATUS_FRIENDLY_MSG: what happened,
+ *			as described in msg_txt
+ * 		3. otherwise (msg_type==SERVER_ACTUAL_FRIENDLY_MSG) - sends the friendly msg.
  * 
  * 	@sockfd
  * 	@msg_txt - Null-terminated string describing the feedback,
@@ -967,8 +968,10 @@ static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 	if (total_msg == NULL) {
 		if (msg_type == SERVER_FILE_ADD_MSG) {
 			printf("Generating msg about file addition failed.\n");
-		} else {
+		} else if (msg_type == SERVER_STATUS_FRIENDLY_MSG){
 			printf("Generating msg about friendly msg's status failed.\n");
+		} else { //msg_type == SERVER_ACTUAL_FRIENDLY_MSG
+			printf("Generating friendly msg to send failed.\n");
 		}
 		return false;
 	}
@@ -981,8 +984,10 @@ static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
 		if (msg_type == SERVER_FILE_ADD_MSG) {
 			printf("Sending feedback about file-addition to client failed.\n");
-		} else {
+		} if (msg_type == SERVER_STATUS_FRIENDLY_MSG){
 			printf("Sending feedback about friendly msg's status to client failed.\n");
+		} else {//msg_type == SERVER_ACTUAL_FRIENDLY_MSG
+			printf("Sending (forward) friendly msg failed - will write to user offline file instead.\n");
 		}
 		free(total_msg);
 		return false;
@@ -1200,24 +1205,25 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 
 /**
  *	Gets a pointer to user_info,
- *	Returns true if this user is online (means it has an active_fd and 
- *	its status is CLIENT_IS_CONNECTED)
+ *	Returns pointer to the relevant active_fd if this user is online 
+ *	(means it has an active_fd and  its status is CLIENT_IS_CONNECTED),
+ *	NULL otherwise.
  **/
-static bool is_user_online(user_info* ptr_to_user_info){
+static active_fd* is_user_online(user_info* ptr_to_user_info){
 	if (ptr_to_user_info == NULL) {
 		printf("Error: function is_user_online() got NULL argument.\n");
-		return false;
+		return NULL;
 	}
 	for (size_t i = 0; i < MAX_USERS; ++i){
 		if (active_fds[i].client_info == ptr_to_user_info){
 			if(active_fds[i].client_status == CLIENT_IS_CONNECTED){
-				return true;
+				return (&(active_fds[i]));
 			} else {
-				return false;
+				return NULL;
 			}
 		}
 	}
-	return false;
+	return NULL;
 }
 
 /**
@@ -1242,7 +1248,7 @@ static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
 	strcpy(txt, "online users: ");
 	
 	for (size_t i = 0; i < number_of_valid_users; ++i){
-		if(is_user_online((*ptr_to_all_users_info)[i])){
+		if(is_user_online((*ptr_to_all_users_info)[i]) != NULL){
 			if(len_txt > strlen("online users: ")){
 				txt[len_txt] = ',';
 				len_txt++;
@@ -1298,6 +1304,73 @@ static bool handle_get_users_online_msg(active_fd* afd,
 }
 
 /**
+ *	Writes the friendly message to dest_user's file.
+ *	Returns true on success.
+ **/
+static bool write_friendly_msg_to_file(active_fd* src_usr_afd, user_info* dest_user,
+		unsigned char* friendly_msg_content)
+{
+	size_t temp0 = strlen("Message received from ");
+	size_t temp1 = strlen((src_usr_afd->client_info)->username);
+	size_t total_len = temp0 + temp1 + 3; //+3 for: ": "&'\0' 
+	char prefix[total_len];
+	memset(prefix, '\0', (total_len));
+	
+	memcpy(prefix,"Message received from ",temp0);
+	memcpy(prefix+temp0, (src_usr_afd->client_info)->username, temp1);
+	memcpy(prefix+temp0+temp1,": ", 2);
+	
+	if( (!AppendStringTofile((unsigned char*)prefix,
+		dest_user->path_to_offline_file, false)) ||
+		(!AppendStringTofile(friendly_msg_content,
+		dest_user->path_to_offline_file, true)) ) 
+	{
+		printf("Error while printing friendly msg sent from %s to %s.\n",
+				(src_usr_afd->client_info)->username,dest_user->username);
+		return(send_client_feedback(src_usr_afd->client_sockfd,
+			"Couldn't pass friendly message: server error",
+			SERVER_STATUS_FRIENDLY_MSG));
+	} else {
+		return(send_client_feedback(src_usr_afd->client_sockfd,
+			"User was off-line: message was successfully written to his file",
+			SERVER_STATUS_FRIENDLY_MSG));
+	}
+}
+
+static bool send_friendly_msg(active_fd* src_usr_afd, user_info* dest_user,
+		unsigned char* friendly_msg_content)
+{
+	active_fd* dst_usr_afd = is_user_online(dest_user);
+	if (dst_usr_afd != NULL) {
+	//Destination user is online:
+		size_t temp0 = strlen("New message from ");
+		size_t temp1 = strlen((src_usr_afd->client_info)->username);
+		size_t total_len = temp0 + temp1 + 
+				strlen((char*)friendly_msg_content) + 3; //+3 for: ": "&'\0' 
+		char txt[total_len];
+		memset(txt, '\0', (total_len));
+		
+		memcpy(txt,"New message from ",temp0);
+		memcpy(txt+temp0, (src_usr_afd->client_info)->username, temp1);
+		memcpy(txt+temp0+temp1,": ", 2);
+		memcpy(txt+temp0+temp1+2, friendly_msg_content,
+				strlen((char*)friendly_msg_content));
+		
+		if (send_client_feedback(dst_usr_afd->client_sockfd, txt,
+				SERVER_ACTUAL_FRIENDLY_MSG))
+		{
+			return (wait_for_acknowledgment_and_report_src_user()); ///TODO:: implement!
+		}
+		//Else - failed to send friendly msg to relevant user, so try to write it to offline file:
+	}
+	//Destination user is offline (or we failed sending friendly msg):
+	// write message to user's file:
+	return (write_friendly_msg_to_file(src_usr_afd, dest_user,
+			friendly_msg_content));	
+}
+
+
+/**
  * 	Takes care of a friendly message user asked to pass
  * 
  * 	Gets:	m - pointer to the message from client,
@@ -1341,7 +1414,7 @@ static bool handle_friendly_msg(struct msg* m, active_fd* afd,
 			"Sending friendly message failed: user does not exist!.",
 			SERVER_STATUS_FRIENDLY_MSG);
 	} else {
-		ans = send_friendly_msg(afd, dest_user,friendly_msg_content);///TODO:: implement!
+		ans = send_friendly_msg(afd, dest_user,friendly_msg_content);
 	}
 	
 	free(temp_username);
@@ -1492,7 +1565,7 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 	memset(&temp_client_addr, 0, sizeof(temp_client_addr));
 	socklen_t client_len = sizeof(temp_client_addr);
 	int new_client_sock = accept(server_listen_sockfd,
-					(struct sockaddr*)&temp_client_addr, &client_len);
+			(struct sockaddr*)&temp_client_addr, &client_len);
 	if (new_client_sock < 0) {
 		printf("Failed accepting connection, error is: %s.\n Continue trying to accept connections.\n",strerror(errno));
 		return;
