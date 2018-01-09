@@ -18,6 +18,23 @@ static bool check_if_username_already_exists(const char* username_to_check, user
 }
 
 /**
+ * 	Returns:	
+ * 		1.a pointer to relevant user_info if a user with that
+ *		name already exists in the array of all users
+ * 		2. NULL if no such user exist
+ **/
+static user_info* get_user_by_name(const char* username_to_check,
+		user_info*** ptr_to_all_users_info)
+{
+	for (size_t i = 0; i < number_of_valid_users; ++i){
+		if (strncmp(((*ptr_to_all_users_info)[i])->username, username_to_check, MAX_USERNAME_LEN+1) == 0){
+			return ((*ptr_to_all_users_info)[i]);
+		}
+	}
+	return NULL;
+}
+
+/**
  *	Gets a pointer to active_fd,
  *	Initializes all its fields to default (empty) values
  **/
@@ -1134,7 +1151,6 @@ static bool handle_add_file_msg(struct msg* m, active_fd* afd,
 	if(!exstract_fname_txt_from_msg(buff, &temp_fname, &txt, msg_len)){
 		printf("Extracting name of file and its content from clients' msg failed\n");
 		free(buff);
-		//free(temp_fname);	//free(txt); //deleted: already freed inside extract()
 		return (send_client_feedback((*afd).client_sockfd,
 			"Adding file failed: extracting filename and its content failed.",
 			SERVER_FILE_ADD_MSG));
@@ -1313,10 +1329,21 @@ static bool handle_friendly_msg(struct msg* m, active_fd* afd,
 			"Sending friendly message failed: extracting designated user and msg's content failed.",
 			SERVER_STATUS_FRIENDLY_MSG));
 	}
-	free(buff);//?
-
-	///TODO:: continue edit this new case!!
-	return true;
+	free(buff);
+	
+	bool ans = false;
+	user_info* dest_user = get_user_by_name(temp_username, ptr_to_all_users_info);
+	if (dest_user == NULL) {
+		ans = send_client_feedback((*afd).client_sockfd,
+			"Sending friendly message failed: user does not exist!.",
+			SERVER_STATUS_FRIENDLY_MSG);
+	} else {
+		ans = send_friendly_msg(afd, dest_user,friendly_msg_content);///TODO:: implement!
+	}
+	
+	free(temp_username);
+	free(friendly_msg_content);
+	return ans;
 }
 
 /**
