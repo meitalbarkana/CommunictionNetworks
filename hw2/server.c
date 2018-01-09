@@ -1315,8 +1315,16 @@ static bool wait_for_acknowledgment_and_report_src_user(active_fd* dst_usr_afd,
 		return false;
 	}
 	if (m.len != 0 || m.type != CLIENT_FRIENDLY_MSG_WAS_HANDLED){
-		printf("Recieved invalid acknowledgment message.\n");
+		printf("Recieved invalid acknowledgment message, msg type is: %d.\n", m.type);
 		ans = false;
+	} else {
+		//Notify success:
+		if (!send_client_feedback(src_usr_afd->client_sockfd, 
+				"Friendly message sent and received successfully",
+				SERVER_STATUS_FRIENDLY_MSG))
+		{
+			//TODO:: close socket. still return true.
+		}
 	}
 	free(m.msg);
 	return ans;
@@ -1341,13 +1349,15 @@ static bool send_friendly_msg(active_fd* src_usr_afd, user_info* dest_user,
 		memcpy(txt+temp0+temp1+2, friendly_msg_content,
 				strlen((char*)friendly_msg_content));
 		
-		if (send_client_feedback(dst_usr_afd->client_sockfd, txt,
-				SERVER_ACTUAL_FRIENDLY_MSG))
+		if ( (send_client_feedback(dst_usr_afd->client_sockfd, txt,
+			SERVER_ACTUAL_FRIENDLY_MSG)) &&
+			(wait_for_acknowledgment_and_report_src_user(dst_usr_afd,
+			src_usr_afd)) )
 		{
-			return (wait_for_acknowledgment_and_report_src_user(dst_usr_afd,
-			src_usr_afd));
+			return true;
 		}
-		//Else - failed to send friendly msg to relevant user, so try to write it to offline file:
+		//Else - failed to send friendly msg to relevant user, or failed
+		// to get it acked, so we'll try to write it to offline file:
 	}
 	//Destination user is offline (or we failed sending friendly msg):
 	// write message to user's file:
@@ -1397,7 +1407,7 @@ static bool handle_friendly_msg(struct msg* m, active_fd* afd,
 	user_info* dest_user = get_user_by_name(temp_username, ptr_to_all_users_info);
 	if (dest_user == NULL) {
 		ans = send_client_feedback((*afd).client_sockfd,
-			"Sending friendly message failed: user does not exist!.",
+			"Sending friendly message failed: user does not exist!",
 			SERVER_STATUS_FRIENDLY_MSG);
 	} else {
 		ans = send_friendly_msg(afd, dest_user,friendly_msg_content);
