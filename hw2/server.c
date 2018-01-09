@@ -1222,7 +1222,7 @@ static bool is_user_online(user_info* ptr_to_user_info){
 
 /**
  *	Returns a list off all connected users in format:
- *	<username0>'\n'<username1>'\n'...'\n'<last username>'\0'
+ *	"online users: <username0>'\n'<username1>'\n'...'\n'<last username>'\0'"
  *	IN ORDER WHICH THEY APPEARED IN USERS-FILE! (ptr_to_all_users_info
  *	is ordered according to that file)
  *
@@ -1231,16 +1231,19 @@ static bool is_user_online(user_info* ptr_to_user_info){
  * 			3. USER SHOULD FREE MEMORY ALLOCATED for char* returned.
  **/
 static char* build_all_online_users_str(user_info*** ptr_to_all_users_info){
-	char* txt = calloc(((MAX_USERNAME_LEN+1)*MAX_USERS), sizeof(char)); //+2 for '\n' xor '\0'
+	
+	size_t len_txt = strlen("online users: ");
+	char* txt = calloc(((MAX_USERNAME_LEN+1)*MAX_USERS + len_txt), sizeof(char)); //+1 for '\n' xor '\0'
 	if (txt == NULL){
 		printf("Allocation failed when trying to build users-online-list.\n");
 		return NULL;
 	}
 	
-	size_t len_txt = 0;
+	strcpy(txt, "online users: ");
+	
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		if(is_user_online((*ptr_to_all_users_info)[i])){
-			if(len_txt > 0){
+			if(len_txt > strlen("online users: ")){
 				txt[len_txt] = ',';
 				len_txt++;
 			}
