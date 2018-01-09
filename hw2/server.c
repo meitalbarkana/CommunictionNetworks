@@ -3,19 +3,7 @@
 static size_t number_of_valid_users = 0;
 static active_fd active_fds[MAX_USERS];
 
-static unsigned short port_number = (unsigned short) DEFAULT_PORT_NUM; // Default port value
-
-/**
- * 	Returns true if username_to_check already exists in the array of all users.
- **/
-static bool check_if_username_already_exists(const char* username_to_check, user_info*** ptr_to_all_users_info){
-	for (size_t i = 0; i < number_of_valid_users; ++i){
-		if (strncmp(((*ptr_to_all_users_info)[i])->username, username_to_check, MAX_USERNAME_LEN+1) == 0){
-			return true; //username already exists
-		}
-	}
-	return false;
-}
+static unsigned short port_number = (unsigned short) DEFAULT_PORT_NUM;
 
 /**
  * 	Returns:	
@@ -72,17 +60,6 @@ void free_users_array(user_info*** ptr_to_all_users_info){
 }
 
 /**
- *  Helper function to print info - JUST FOR TESTING!
- **/
-/*static void print_users_array(user_info*** ptr_to_all_users_info){
-	for (size_t i = 0; i < number_of_valid_users; ++i){
-		printf("***** Details of user number %zu *****\n", i);
-		printf("Username: %s\nPassword: %s\n", ((*ptr_to_all_users_info)[i])->username, ((*ptr_to_all_users_info)[i])->password);
-	}
-	printf("\n");
-}*/
-
-/**
  * 	Helper function, that on success returns a string representing full path to file_name:
  * 	(in format: dir_path/user_name/file_name)
  * 	Note: dir_path should already contain '/' at its end.
@@ -134,9 +111,7 @@ static bool alloc_userinfo_array_and_temps(user_info*** ptr_to_all_users_info,ch
 		free(*ptr_to_temp_username);
 		return false;
 	}
-	
 	return true;
-	
 }
 
 /**
@@ -226,7 +201,7 @@ static enum ServerErrors get_users_info_from_file(const char* path_to_file,user_
 			} 
 			else //temp_username contains current username, temp_password contains his password:
 			{ 
-				if(check_if_username_already_exists(temp_username, ptr_to_all_users_info))
+				if(get_user_by_name(temp_username, ptr_to_all_users_info))
 				{
 					printf("Username: %s appeared more than once in users-file, considered only first appearence.\n", temp_username);
 				} 
@@ -362,7 +337,6 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 	if ((*ptr_dir_path) == NULL){
 		return NULL;
 	}
-	//printf("Valid directory path provided is: %s\n", (*ptr_dir_path)); //Test Line
 	
 	/** 
 	 * If a fourth argument (port number) was provided, checks if it's relevant (short unsigned, meaning in range of 1 to USHRT_MAX),
@@ -379,7 +353,6 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 			port_number = (unsigned short) val;
 		}
 	}
-	//printf("port number is: %hu\n",port_number); //Test Line
 	
 	user_info** ptr_all_users_info = NULL;
 	enum ServerErrors answ = get_users_info_from_file(file_path, &ptr_all_users_info);
@@ -400,7 +373,6 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
 		free((*ptr_dir_path));
 		return NULL;
 	}
-	//print_users_array(&ptr_all_users_info); //Test Line
 	
 	if(!create_directories(&ptr_all_users_info, ptr_dir_path)) {
 		printf("No directories were created for users\n");
@@ -419,7 +391,8 @@ user_info** init_server(int argc, char* argv[], char** ptr_dir_path){
  *		Returns true. 
  **/
 bool is_username_password_correct (user_info*** ptr_to_all_users_info,
-		const char* usern_to_check, const char* passw_to_check, active_fd* fd_ptr){
+	const char* usern_to_check, const char* passw_to_check, active_fd* fd_ptr)
+{
 	for (size_t i = 0; i < number_of_valid_users; ++i){
 		if ((strncmp(((*ptr_to_all_users_info)[i])->username, usern_to_check, MAX_USERNAME_LEN+1) == 0) &&
 			(strncmp(((*ptr_to_all_users_info)[i])->password, passw_to_check, MAX_PASSWORD_LEN+1) == 0))
@@ -432,7 +405,8 @@ bool is_username_password_correct (user_info*** ptr_to_all_users_info,
 }
 
 /**
- * 	Gets: char** usern , char** passw - pointers to addresses allocted&nullified in sizes of MAX_USERNAME_LEN+1,MAX_PASSWORD_LEN+1 accordingly.
+ * 	Gets: char** usern , char** passw - pointers to addresses allocted&nullified
+ *	in sizes of MAX_USERNAME_LEN+1,MAX_PASSWORD_LEN+1 accordingly.
  * 	If buff is indeed of the format:
  * 	"<username>\n<password>\n"
  * 	updates (*usern), (*passw) to contain the relevant values and returns true.
@@ -716,7 +690,6 @@ static int init_server_sock(struct sockaddr_in* server_addr){
 	return sockfd;
 }
 
-
 /**
  * 	Generetes the welcome message to send client - updates (*wel_msg) to contain it (including prefix)
  * 	Returns: On success - length of the msg (including prefix)
@@ -741,14 +714,14 @@ static int generate_welcome_msg(unsigned char** wel_msg){
 static bool send_welcome_msg(int sockfd){
 	unsigned char* wel_msg;
 	int lenOfMsg;
+	bool ans = true;
 	
 	if (((lenOfMsg = generate_welcome_msg(&wel_msg)) < 0) || (sendall(sockfd, wel_msg, &lenOfMsg) < 0)) {
-		free(wel_msg);
-		return false;
+		ans = false;
 	}
 
 	free(wel_msg);
-	return true; 
+	return ans; 
 }
 
 
@@ -785,12 +758,12 @@ static int generate_status_msg(unsigned char** wel_msg, const char* user_dir_pat
 
 /**
  * 	Gets a pointer to an active_fd that is ready to be received from,
- *	checks if represent a valid user:
+ *	checks if it represents a valid user:
  * 
- * 	If client sent valid info, updates *fd_ptr to point at relevant user
- *	(from ptr_to_all_users_info)
- *
- *	If client sent invalid details, updates fd_ptr->num_authentication_attempts
+ * 		1. If client sent valid info, updates *fd_ptr to point at
+ *		 relevant user (from ptr_to_all_users_info)
+ *		2. If client sent invalid details, updates 
+ *		fd_ptr->num_authentication_attempts
  * 
  *	NOTE: if an error accured, won't change fd_ptr->num_authentication_attempts.
  * 
@@ -829,6 +802,7 @@ static bool get_user_details(active_fd* fd_ptr, user_info*** ptr_to_all_users_in
 static bool send_server_login_failed_msg(int sockfd){
 	int len = SIZE_OF_PREFIX;
 	unsigned char* msg = (unsigned char*) malloc(SIZE_OF_PREFIX);
+	bool ans = true;
 	if (msg == NULL) {
 		printf("Allocating msg space failed\n");
 		return false;
@@ -836,11 +810,10 @@ static bool send_server_login_failed_msg(int sockfd){
 	intToString(0, SIZE_OF_LEN, msg);
 	intToString(SERVER_LOGIN_FAIL_MSG, SIZE_OF_TYPE, msg + SIZE_OF_LEN);
 	if (sendall(sockfd, msg, &len) < 0) {
-		free(msg);
-		return false;
+		ans = false;
 	}
 	free(msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -849,16 +822,16 @@ static bool send_server_login_failed_msg(int sockfd){
  **/
 static bool send_status_msg(int sockfd, const char* user_dir_path, const char* user_name){
 	unsigned char* wel_msg;
+	bool ans = true;
 	int msg_len = generate_status_msg(&wel_msg, user_dir_path, user_name);
 	if(msg_len < 0) {
 		return false;
 	}
 	if (sendall(sockfd, wel_msg, &msg_len) < 0) {
-		free(wel_msg);
-		return false;
+		ans = false;
 	}
 	free(wel_msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -868,7 +841,7 @@ static bool send_status_msg(int sockfd, const char* user_dir_path, const char* u
  * Returns true if succeeded
  **/
 static bool send_listfiles_to_client(int sockfd, const char* user_dir_path){
-
+	bool ans = true;
 	char* files_list = get_list_of_files(user_dir_path); //files_list is null-terminated.
 	if (files_list == NULL) {
 		return false;
@@ -889,12 +862,10 @@ static bool send_listfiles_to_client(int sockfd, const char* user_dir_path){
 	int files_msg_len = SIZE_OF_PREFIX+str_len;
 	if (sendall(sockfd, files_msg, &files_msg_len) < 0) {
 		printf("Sending list-of-files to client failed.\n");
-		free(files_msg);
-		return false;
+		ans = false;
 	}
 	free(files_msg);
-	return true;
-
+	return ans;
 }
 
 /**
@@ -905,6 +876,7 @@ static bool send_listfiles_to_client(int sockfd, const char* user_dir_path){
  * 	Returns true if reporting client succeeded
  **/
 static bool delete_file_and_report_client(int sockfd, const char* user_dir_path, const char* temp_fname){
+	bool ans = true;
 	printDebugString("in delete_file_and_report_client, trying to delete file:");
 	printDebugString(temp_fname);
 	char* full_user_dir_path = concat_strings(user_dir_path, "/", false);
@@ -942,11 +914,10 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
 	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
 	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
 		printf("Sending info about file-deletion to client failed.\n");
-		free(total_msg);
-		return false;
+		ans = false;
 	}
 	free(total_msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -963,7 +934,7 @@ static bool delete_file_and_report_client(int sockfd, const char* user_dir_path,
  * 	Returns true if succeeded
  **/
 static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
-	
+	bool ans = true;
 	unsigned char* total_msg = calloc(SIZE_OF_PREFIX+strlen(msg_txt), sizeof(unsigned char));
 	if (total_msg == NULL) {
 		if (msg_type == SERVER_FILE_ADD_MSG) {
@@ -989,11 +960,10 @@ static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 		} else {//msg_type == SERVER_ACTUAL_FRIENDLY_MSG
 			printf("Sending (forward) friendly msg failed - will write to user offline file instead.\n");
 		}
-		free(total_msg);
-		return false;
+		ans = false;
 	}
 	free(total_msg);
-	return true;
+	return ans;
 }
 
 /**
@@ -1074,16 +1044,15 @@ static bool send_file_to_client(int sockfd, const char* dir_path, const char* us
 		intToString(SERVER_FILE_DOWNLOAD_FAILED_MSG, SIZE_OF_TYPE, total_msg+SIZE_OF_LEN);
 		memcpy(total_msg+SIZE_OF_PREFIX, msg_txt, str_len);
 	}
-	
+	bool ans = true;
 	int total_msg_len = SIZE_OF_PREFIX+str_len;
 	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
 		printf("Sending downloaded file to client failed.\n");
-		free(total_msg);
-		return false;
+		ans = false;
 	}
+	
 	free(total_msg);
-	return true;
-
+	return ans;
 }
 
 /**
@@ -1161,17 +1130,16 @@ static bool handle_add_file_msg(struct msg* m, active_fd* afd,
 			SERVER_FILE_ADD_MSG));
 	}
 	free(buff);
+	bool ans = true;
 	if (!add_file_and_report_client((*afd).client_sockfd, *ptr_dir_path,
 			(*afd).client_info->username, &txt, temp_fname))
 	{
 		printf("Error: server error while adding file asked by client.\n");
-		free(txt);
-		free(temp_fname);
-		return false;
+		ans = false;
 	}
 	free(txt);
 	free(temp_fname);
-	return true;
+	return ans;
 }
 
 /**
@@ -1193,13 +1161,12 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 	}
 	
 	strncpy(temp_fname, (char*)((*m).msg), (*m).len);
-	
+	bool ans = true;
 	if(!send_file_to_client((*afd).client_sockfd, *ptr_dir_path, (*afd).client_info->username, temp_fname)){
-		free(temp_fname);
-		return false;
+		ans = false;
 	}
 	free(temp_fname);
-	return true;
+	return ans;
 	
 }
 
@@ -1337,6 +1304,24 @@ static bool write_friendly_msg_to_file(active_fd* src_usr_afd, user_info* dest_u
 	}
 }
 
+static bool wait_for_acknowledgment_and_report_src_user(active_fd* dst_usr_afd,
+		active_fd* src_usr_afd)
+{
+	bool ans = true;
+	struct msg m = { NULL, -1, -1 };
+	//NOTE: as said on the course forum, we may assume this recv() won't block:
+	if (getMSG((*dst_usr_afd).client_sockfd, &m) < 0){
+		printf("Server failed to get client's acknowledgment of getting friendly message.\n");
+		return false;
+	}
+	if (m.len != 0 || m.type != CLIENT_FRIENDLY_MSG_WAS_HANDLED){
+		printf("Recieved invalid acknowledgment message.\n");
+		ans = false;
+	}
+	free(m.msg);
+	return ans;
+}
+
 static bool send_friendly_msg(active_fd* src_usr_afd, user_info* dest_user,
 		unsigned char* friendly_msg_content)
 {
@@ -1359,7 +1344,8 @@ static bool send_friendly_msg(active_fd* src_usr_afd, user_info* dest_user,
 		if (send_client_feedback(dst_usr_afd->client_sockfd, txt,
 				SERVER_ACTUAL_FRIENDLY_MSG))
 		{
-			return (wait_for_acknowledgment_and_report_src_user()); ///TODO:: implement!
+			return (wait_for_acknowledgment_and_report_src_user(dst_usr_afd,
+			src_usr_afd));
 		}
 		//Else - failed to send friendly msg to relevant user, so try to write it to offline file:
 	}
@@ -1455,8 +1441,6 @@ static bool get_msg_and_answer_it(active_fd* afd, user_info*** ptr_to_all_users_
 		return false;
 	}
 	
-	printDebugString("in get_msg_and_answer_it, msg type is:");
-	printDebugInt((int)m.type);
 	switch(m.type){
 		
 		case(CLIENT_FILES_LIST_MSG):
@@ -1702,8 +1686,6 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr,
 
 }
 
-
-
 /**
  * Server's basic function: opens socket for connection, takes care of 1 client each time.
  **/
@@ -1713,7 +1695,6 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 	struct sockaddr_in server_addr;
 	fd_set read_fds;
 	int action = -1;
-	
 	init_array_active_fds();
 
 	if((server_listen_sockfd = init_server_sock(&server_addr)) == -1){ //Failed creating server's socket
@@ -1754,10 +1735,8 @@ void start_service(user_info*** ptr_to_all_users_info, char*const *ptr_dir_path)
 					}
 				}
 		}
-
 	}
 }
-
 
 int main(int argc, char* argv[]){
 	
