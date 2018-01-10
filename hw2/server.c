@@ -1166,6 +1166,11 @@ static bool handle_download_file_msg(struct msg* m, active_fd* afd,
 	bool ans = true;
 	if(!send_file_to_client((*afd).client_sockfd, *ptr_dir_path, (*afd).client_info->username, temp_fname)){
 		ans = false;
+	} else {
+		if (strcmp(temp_fname, STR_OFFLINE_FILE) == 0){
+			//If file sent to user is the offline-file, we'll truncate it:
+			fclose(fopen((*afd).client_info->path_to_offline_file,"w+"));
+		}
 	}
 	free(temp_fname);
 	return ans;
