@@ -114,6 +114,7 @@ int getMSG(int iFd, struct msg * msg) {
 }
 void printFriendly(int iFd){
 	struct msg m = { NULL, -1, -1 };
+	printf("Yay! I got a friendly msg\n");
 	getMSGOrPrintFriendly(iFd,&m,true);
 	free(m.msg);
 	return ;
@@ -139,6 +140,8 @@ int getMSGOrPrintFriendly(int iFd, struct msg * msg,bool justFriendly) {
 	if(msg->type==SERVER_ACTUAL_FRIENDLY_MSG){
 		printUnsignedCharArr(msg->msg,msg->len,false,false,true);
 		int len = SIZE_OF_PREFIX;
+		printf("about to send aprrove msg. its content is:\n");//TODO::
+		printUnsignedCharArr(approveFriendly, 0, true, false, true);//TODO::
 		sendall(iFd,approveFriendly,&len);
 		free(msg->msg);
 		return (justFriendly || getMSG(iFd, msg));

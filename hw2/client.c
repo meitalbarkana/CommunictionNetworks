@@ -379,7 +379,11 @@ int main(int argc, char *argv[]) {
 			char * pch;
 			char* command = (pch = strtok(CommandArr, " "));
 			char* arg1 = (pch == NULL ? NULL : (pch = strtok(NULL, " ")));
-			char* arg2 = (pch == NULL ? NULL : (pch = strtok(NULL, " ")));
+			char s[2] =" ";
+			if(strcmp(command, "msg")==0){
+				 s[0]='\n';
+			 }
+			char* arg2 = (pch == NULL ? NULL : (pch = strtok(NULL, s)));
 			if (strcmp(command, "list_of_files\n") == 0) {
 				listOfFilesRequest(socketfd);
 			} else if ((strcmp(command, "delete_file") == 0) && arg1 != NULL) {
