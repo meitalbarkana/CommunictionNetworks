@@ -211,7 +211,7 @@ bool fileToString(unsigned char** msg, const char* filepath,long* fsize) {
 		printf("malloc failed\n");
 		return false;
 	}
-	if (fread(*msg, *fsize, 1, f) < 1) {
+	if ((fread(*msg, *fsize, 1, f) < 1) && (feof(f))) {
 		printf("fread failed\n");
 		return false;
 	}

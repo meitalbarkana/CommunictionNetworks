@@ -170,7 +170,7 @@ bool handleFileMSG(int fd, bool printToScreen, const char* PathToSave) {
 	bool res = ((m.type == SERVER_FILE_DOWNLOAD_MSG && !printToScreen)
 			&& StringTofile(m.msg, PathToSave))
 			|| ((m.type == SERVER_FILE_DOWNLOAD_FAILED_MSG || printToScreen)
-					&& printUnsignedCharArr(m.msg, m.len, false, false, true));
+					&& printUnsignedCharArr(m.msg, m.len, false, false, m.type == SERVER_FILE_DOWNLOAD_FAILED_MSG));
 	free(m.msg);
 	return res;
 }
@@ -218,7 +218,7 @@ bool printOnScreen) {
 }
 
 bool addFileRequest(int fd, const char* filePath, const char* newFileName) {
-	unsigned char* msg;
+	unsigned char* msg = NULL;
 	int lenOfMsg;
 	if ((lenOfMsg = generateFileAddRequestMSG(&msg, filePath, newFileName)) < 0
 			|| sendall(fd, msg, &lenOfMsg) < 0) {
@@ -394,7 +394,8 @@ int main(int argc, char *argv[]) {
 					== 0&& arg1 != NULL && arg2 != NULL) {
 				addFileRequest(socketfd, arg1, arg2);
 			} else if (strcmp(command, "get_file")
-					== 0&& arg1 != NULL && arg2 != NULL) {
+					== 0&& arg1 != NULL && arg2 != NULL && strcmp(arg1, STR_OFFLINE_FILE)
+					!= 0) {
 				getFileRequest(socketfd, arg1, strlen(arg1), arg2, false);
 			} else if (strcmp(command, "users_online\n") == 0) {
 				getUsersRequest(socketfd);
