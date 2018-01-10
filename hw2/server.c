@@ -1330,7 +1330,9 @@ static bool wait_for_acknowledgment_and_report_src_user(active_fd* dst_usr_afd,
 				"Friendly message sent and received successfully",
 				SERVER_STATUS_FRIENDLY_MSG))
 		{
-			//TODO:: close socket. still return true.
+			//close socket. still return true:
+			close(src_usr_afd->client_sockfd);
+			init_active_fd(src_usr_afd);
 		}
 	}
 	free(m.msg);
