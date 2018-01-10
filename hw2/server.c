@@ -1622,9 +1622,9 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 	bool is_authenticated = get_user_details(fd_ptr, ptr_to_all_users_info);
 	
 	if(!is_authenticated){
-		send_server_login_failed_msg(fd_ptr->client_sockfd);
-		if ((*fd_ptr).num_authentication_attempts == ALLOWED_TRIALS) {
-			printf("Socket number: %d failed to authenticate too many times, closing connection.\n",
+		if ((!send_server_login_failed_msg(fd_ptr->client_sockfd)) ||
+			((*fd_ptr).num_authentication_attempts == ALLOWED_TRIALS) ){
+			printf("Socket number: %d failed to authenticate too many times OR failed to get failed-login-msg, closing connection.\n",
 					(*fd_ptr).client_sockfd);
 			close((*fd_ptr).client_sockfd);
 			init_active_fd(fd_ptr);
@@ -1646,7 +1646,9 @@ static void handle_new_connection_attempt(int server_listen_sockfd){
 		if (!send_status_msg((*fd_ptr).client_sockfd, curr_user_dir_path,
 				(*fd_ptr).client_info->username))
 		{//Not supposed to get here:
-			printf("Failed sending SERVER_LOGIN_PASS_MSG. Continuing to next client.\n");
+			printf("Failed sending SERVER_LOGIN_PASS_MSG. Continuing to next client, closing relevant socket\n");
+			close((*fd_ptr).client_sockfd);
+			init_active_fd(fd_ptr);
 		}
 		free(curr_user_dir_path);
 	}
@@ -1696,7 +1698,9 @@ static void handle_msg_from_active_fd(active_fd* fd_ptr,
 			}
 			
 			if(!get_msg_and_answer_it(fd_ptr, ptr_to_all_users_info, ptr_dir_path, curr_user_dir_path)){
-				printf("Getting or answering client's message failed, continue to next client\n");
+				printf("Getting or answering client's message failed, closing connection and continuing to next client\n");
+				close(fd_ptr->client_sockfd);
+				init_active_fd(fd_ptr);
 			}
 			free(curr_user_dir_path);
 	}
