@@ -953,13 +953,6 @@ static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 
 	int total_msg_len = SIZE_OF_PREFIX+strlen(msg_txt);
 	
-	//TODO:: delete, for testing only:
-	if(msg_type == SERVER_ACTUAL_FRIENDLY_MSG){
-		printf("Actual friendly msg is:\n");
-		printUnsignedCharArr(total_msg, strlen(msg_txt), true, false, true);
-		printf("Actual friendly msg destination is socket number: %d\n", sockfd);
-	}
-	
 	if (sendall(sockfd, total_msg, &total_msg_len) < 0) {
 		if (msg_type == SERVER_FILE_ADD_MSG) {
 			printf("Sending feedback about file-addition to client failed.\n");
@@ -970,6 +963,7 @@ static bool send_client_feedback(int sockfd, const char* msg_txt, int msg_type){
 		}
 		ans = false;
 	}
+	
 	free(total_msg);
 	return ans;
 }
@@ -1357,10 +1351,6 @@ static bool send_friendly_msg(active_fd* src_usr_afd, user_info* dest_user,
 		memcpy(txt+temp0+temp1+2, friendly_msg_content,
 				strlen((char*)friendly_msg_content));
 		
-		//TODO:: delete, for testing:
-		printf("Destination socket is: %d, Source socket is: %d\n",dst_usr_afd->client_sockfd,src_usr_afd->client_sockfd);
-		printf("Destination user name is: %s, Source user is: %s\n",(dst_usr_afd->client_info)->username,(src_usr_afd->client_info)->username);
-		
 		if ( (send_client_feedback(dst_usr_afd->client_sockfd, txt,
 			SERVER_ACTUAL_FRIENDLY_MSG)) &&
 			(wait_for_acknowledgment_and_report_src_user(dst_usr_afd,
@@ -1414,9 +1404,6 @@ static bool handle_friendly_msg(struct msg* m, active_fd* afd,
 			SERVER_STATUS_FRIENDLY_MSG));
 	}
 	free(buff);
-	
-	//TODO:: delete
-	printf("friendly msg content is: [%s]\n", friendly_msg_content);
 	
 	bool ans = false;
 	user_info* dest_user = get_user_by_name(temp_username, ptr_to_all_users_info);

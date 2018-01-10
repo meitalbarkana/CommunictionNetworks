@@ -318,11 +318,6 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	//init read_fds
-	fd_set read_fds;
-	FD_ZERO(&read_fds);
-	FD_SET(STDIN_FILENO, &read_fds);
-	FD_SET(socketfd, &read_fds);
 
 	if (!getWelcomeMsg(socketfd)) {
 		printf("Didn't get welcome msg\n");
@@ -360,8 +355,15 @@ int main(int argc, char *argv[]) {
 	}
 
 	// action with the server
+	fd_set read_fds;
 	bool askedToQuit = false;
+	
 	while (!askedToQuit) {
+		//init read_fds
+		FD_ZERO(&read_fds);
+		FD_SET(STDIN_FILENO, &read_fds);
+		FD_SET(socketfd, &read_fds);
+		
 		char CommandArr[MAX_COMMAND_LEN];
 		int activity = select(socketfd + 1, &read_fds, NULL, NULL, NULL);
 		if (activity < 1) {
